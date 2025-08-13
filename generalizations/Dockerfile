@@ -18,3 +18,6 @@ EXPOSE 8001
 # # Define the command to run on container start
 # CMD ["python", "manage.py", "makemigrations"]
 # CMD ["python", "manage.py", "migrate"]
+
+# Default command to run your Django app
+CMD ["bash", "-c", "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8001"]
