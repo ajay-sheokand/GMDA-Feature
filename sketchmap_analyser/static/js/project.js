@@ -486,7 +486,7 @@ function getServiceUrl(serviceName) {
     }
 
     // On cloud: use Apache reverse proxy paths
-    return `${protocol}//${hostName}/${serviceName}`;
+    return `${protocol}//${hostName}`;
 }
 
 function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,routeIDArray,sketchIDArray,lastSketchStreet,lastBaseStreet,resp){
