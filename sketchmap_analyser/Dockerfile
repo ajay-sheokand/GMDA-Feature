@@ -26,4 +26,4 @@ EXPOSE 8000
 # CMD ["python", "manage.py", "runserver", "localhost:8000"]
 
 # Default command to run your Django app
-CMD ["bash", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+CMD ["bash", "-c", "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]

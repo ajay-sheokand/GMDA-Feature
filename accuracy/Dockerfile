@@ -20,4 +20,4 @@ EXPOSE 8003
 # CMD ["python", "manage.py", "migrate"]
 
 # Default command to run your Django app
-CMD ["bash", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8003"]
+CMD ["bash", "-c", "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8003"]
