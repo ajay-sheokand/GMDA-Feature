@@ -10,7 +10,7 @@ WORKDIR /app
 # Copy the current directory contents into the container at /app
 COPY . /app
 
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Expose the port the app will run on
 EXPOSE 8002
@@ -20,4 +20,4 @@ EXPOSE 8002
 # CMD ["python", "manage.py", "migrate"]
 
 # Default command to run your Django app
-CMD ["bash", "-c", "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8002"]
+CMD ["bash", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8002"]
