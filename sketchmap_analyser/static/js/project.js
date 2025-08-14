@@ -28,9 +28,6 @@ var tempallDrawnSketchItems;
 var streetCountBeforeGen = 0;
 var lmCountBeforeGen = 0;
 var hostName
-var isLocalhost = true
-var protocol = 8001
-var baseUrl
 
 
 
@@ -404,14 +401,9 @@ sketchIDArray.push(bysketchrouteorder[i].id);
 }
 var lastSketchStreet = sketchIDArray[sketchIDArray.length -1];
 var lastBaseStreet = routeIDArray[routeIDArray.length - 1];
-hostName = window.location.hostname;
-console.log(hostName);
-// Check if the hostname is localhost or using cloud server
-isLocalhost = (hostName === 'localhost' || hostName === '127.0.0.1');
-// Set the protocol based on the environment
-protocol = window.location.protocol;
+
 // Construct the base URL dynamically
-baseUrl = getBaseUrl(8001);
+baseUrl = getServiceUrl('generalizations');
 console.log("baseUrl: ",baseUrl);
 
  $('#loading-spinner').show();
@@ -479,12 +471,22 @@ try {
 
 }
 
+function getServiceUrl(serviceName) {
+    const hostName = window.location.hostname;
+    const protocol = window.location.protocol;
 
+    // If local dev, use direct ports from Docker
+    if (hostName === 'localhost' || hostName === '127.0.0.1') {
+        const portMap = {
+            generalizations: 8001,
+            completeness: 8002,
+            qualitativerelations: 8003
+        };
+        return `${protocol}//${hostName}:${portMap[serviceName]}`;
+    }
 
-function getBaseUrl(portNo) {
-    return isLocalhost 
-        ? `${protocol}//${hostName}:${portNo}`
-        : `${protocol}//${hostName}`;
+    // On cloud: use Apache reverse proxy paths
+    return `${protocol}//${hostName}/${serviceName}`;
 }
 
 function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,routeIDArray,sketchIDArray,lastSketchStreet,lastBaseStreet,resp){
@@ -635,8 +637,8 @@ function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,ro
 async function analyzeCompleteness(index, currentsketchMap, processedSketch, processedMetric) {
 
     return new Promise((resolve, reject) => {
-        // Use the baseUrl function to get the correct URL
-        baseUrl = getBaseUrl(8001);
+        // Use service URL builder function to build the base URL
+        baseUrl = getServiceUrl('completeness');
         $.ajax({
             headers: { "X-CSRFToken": $.cookie("csrftoken") },
             url: `${baseUrl}/completeness/analyzeCompleteness/`,
@@ -662,8 +664,8 @@ async function analyzeCompleteness(index, currentsketchMap, processedSketch, pro
 async function analyzeQualitative(index, currentsketchMap, processedSketch, processedMetric) {
 
     return new Promise((resolve, reject) => {
-        // Use the baseUrl function to get the correct URL
-        baseUrl = getBaseUrl(8003);
+        // Use service URL builder function to build the base URL
+        baseUrl = getServiceUrl('qualitativerelations');
         $.ajax({
             headers: { "X-CSRFToken": $.cookie("csrftoken") },
             url:  `${baseUrl}/accuracy/analyzeQualitative/`,
