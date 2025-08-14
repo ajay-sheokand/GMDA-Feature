@@ -13,7 +13,7 @@ COPY requirements.txt /app/
 # # Copy the current directory contents into the container at /app
 # COPY . /app
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 COPY . /app/
 # # Define the command to run on container start
