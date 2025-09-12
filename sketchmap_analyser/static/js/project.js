@@ -53,7 +53,7 @@ function renderGeoJsonFiles(file) {
         });
     }}
 
-    if (fileName.includes('basemap')){
+    if (fileName.includes(baseMaptitle)){
     reader.onload = function () {
         $.getJSON(reader.result, function (data) {
          var bidArray = Object.values(data.features).map((item) => item.properties.id);
@@ -63,13 +63,13 @@ function renderGeoJsonFiles(file) {
 
            drawnItems = L.geoJSON(data);
            drawnItems.addTo(layerGroupBasemap);
-           allDrawnSketchItems["basemap"] = drawnItems;
+           allDrawnSketchItems[baseMaptitle] = drawnItems;
             styleLayers();
 
         });
     }}
 
-    if ( !(fileName.includes('basemap')) && !(fileName.includes('alignment'))){
+    if ( !(fileName.includes(baseMaptitle)) && !(fileName.includes('alignment'))){
     reader.onload = function () {
         $.getJSON(reader.result, function (data) {
          sketchMaptitle = fileName.replace('.geojson','');
@@ -273,7 +273,7 @@ if (BooleanEditSketchMode){
 
     //Clear the Result table and add number of rows and columns in the table as per the number of uploaded sketch maps
     $("#OrderingofMaps tbody tr").remove();
-    drawnItems = allDrawnSketchItems["basemap"] ;
+    drawnItems = allDrawnSketchItems[baseMaptitle] ;
     numbOfSM = document.getElementById("SMholder").childElementCount;
     var resultTable = document.getElementById("resultRows");
     for (var i = 0; i<numbOfSM-3;i++){
@@ -290,7 +290,7 @@ if (BooleanEditSketchMode){
 
    //Load all the sketchmaps into temporary variable
     for ( var i in Object.keys(allDrawnSketchItems)){
-        if (Object.keys(allDrawnSketchItems)[i] != 'basemap'){
+        if (Object.keys(allDrawnSketchItems)[i] != baseMaptitle){
             tempallDrawnSketchItems[Object.keys(allDrawnSketchItems)[i]] = allDrawnSketchItems[Object.keys(allDrawnSketchItems)[i]]
         }
     }
@@ -409,6 +409,7 @@ console.log("baseUrl: ",baseUrl);
  $('#loading-spinner').show();
 
 try {
+    console.log("check here check here", currentsketchMap)
     const resp = await $.ajax({
       headers: { "X-CSRFToken": $.cookie("csrftoken") },
       url:  `${baseUrl}/generalizations/requestFME/`,
@@ -459,13 +460,13 @@ try {
     Object.assign(responseData, completenessResponse, qualitativeResponse);
 
     TemporaryAlignmentArray = JSON.parse(JSON.stringify(AlignmentArray));
+    console.log("checkAlignmentArray", AlignmentArray);
     setResults_in_output_div(fixedIndex, responseData);
 
   } catch (error) {
     console.error("Error during analysis:", error);
-    // You could show an error message here too if needed
   } finally {
-    $('#loading-spinner').hide(); // ✅ Spinner OFF regardless of success or failure
+    $('#loading-spinner').hide();
   }
 }
 
@@ -870,14 +871,17 @@ GeneralizationCSV.push("Sketch Map , BaseId , SketchId , Generalization Type");
  for (var i in Object.keys(tempallDrawnSketchItems)){
 
   var sketchmap = Object.keys(tempallDrawnSketchItems)[i];
+  console.log("checkcheckcheck", sketchmap);
+
+    if (TemporaryAlignmentArray[sketchmap]){
     Object.keys(TemporaryAlignmentArray[sketchmap]).forEach(function(key){
      if (key != "checkAlignnum"){
        if (findCommonElements3(multiOmiMergeids[sketchmap], TemporaryAlignmentArray[sketchmap][key].BaseAlign[0])){
             TemporaryAlignmentArray[sketchmap][key].genType = "Multi-Multi Omission Merge";
           }
      }
-
     });
+
 
 
 
@@ -905,11 +909,13 @@ GeneralizationCSV.push("Sketch Map , BaseId , SketchId , Generalization Type");
                 TemporaryAlignmentArray[sketchmap][key].genType = "NOT DEFINED";
           }
         GeneralizationCSV.push(sketchmap + ',' + ((TemporaryAlignmentArray[sketchmap][key].BaseAlign[0]).toString()).replaceAll(",", " ") + ',' + ((TemporaryAlignmentArray[sketchmap][key].SketchAlign[0]).toString()).replaceAll(",", " ") + ',' + ((TemporaryAlignmentArray[sketchmap][key].genType).toString()) ) ;
-
+        console.log("check check check", (TemporaryAlignmentArray[sketchmap][key].genType).toString() )
         }
    // do something with key or value
 
     });
+
+    }
 
         GeneralizationCSV.push(sketchmap + ',' + "Features missing in sketch map, " + missingFeaturesIds[i].toString());
         GeneralizationCSV.push(sketchmap + ',' + "Features drawn extra in sketch map, " + extraFeaturesIds[i].toString());

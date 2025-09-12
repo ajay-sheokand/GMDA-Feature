@@ -16,6 +16,7 @@ var bid=-1;
 var layerGroupBasemap = new L.LayerGroup();
 var layerGroupBasemapGen = new L.LayerGroup();
 var baseMap;
+var baseMaptitle;
 var drawnItems;
 var addedClickBase = false;
 var addedClickSketch = false;
@@ -70,9 +71,8 @@ function renderImageFile(file, location) {
         }
         var image = new Image();
 
-        image.title = file.name;
+        baseMaptitle = file.name;
         image.src = this.result;
-        console.log("src", this.result);
 
         baseMap = new L.map('imagemap', {
             crs: L.CRS.Simple
@@ -430,7 +430,7 @@ drawnItems.setStyle({opacity:1});
 
 baseMap.removeControl(routeButton);
 
-allDrawnSketchItems["basemap"] = drawnItems;
+allDrawnSketchItems[baseMaptitle] = drawnItems;
 });
 
 
@@ -1147,7 +1147,7 @@ for (var i = 0; i < line1.length; i++) {
 if (commonPair) {
     return "OmissionMerge";
 } else {
-    return "abstraction to existence";
+    return "Abstraction to show existence";
 }
 }
 
