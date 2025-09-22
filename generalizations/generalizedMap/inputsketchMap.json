@@ -7,21 +7,35 @@
                 "id": 0,
                 "sid": "S0",
                 "isRoute": null,
-                "feat_type": null,
+                "feat_type": "Landmark",
                 "selected": false,
                 "aligned": true,
-                "otype": "Line"
+                "otype": "Polygon"
             },
             "geometry": {
-                "type": "LineString",
+                "type": "Polygon",
                 "coordinates": [
                     [
-                        111.656822,
-                        308.917648
-                    ],
-                    [
-                        213.170209,
-                        285.909304
+                        [
+                            195,
+                            484.57178
+                        ],
+                        [
+                            175.5,
+                            430.770735
+                        ],
+                        [
+                            254.5,
+                            414.75554
+                        ],
+                        [
+                            274,
+                            469.05706
+                        ],
+                        [
+                            195,
+                            484.57178
+                        ]
                     ]
                 ]
             }
@@ -32,21 +46,35 @@
                 "id": 1,
                 "sid": "S1",
                 "isRoute": null,
-                "feat_type": null,
+                "feat_type": "Landmark",
                 "selected": false,
                 "aligned": true,
-                "otype": "Line"
+                "otype": "Polygon"
             },
             "geometry": {
-                "type": "LineString",
+                "type": "Polygon",
                 "coordinates": [
                     [
-                        213.170209,
-                        285.909304
-                    ],
-                    [
-                        297.181288,
-                        248.895882
+                        [
+                            194.5,
+                            313.592752
+                        ],
+                        [
+                            132.5,
+                            235.518678
+                        ],
+                        [
+                            258.5,
+                            181.467396
+                        ],
+                        [
+                            320.5,
+                            260.041945
+                        ],
+                        [
+                            194.5,
+                            313.592752
+                        ]
                     ]
                 ]
             }
@@ -57,21 +85,55 @@
                 "id": 2,
                 "sid": "S2",
                 "isRoute": null,
-                "feat_type": null,
+                "feat_type": "Landmark",
                 "selected": false,
                 "aligned": true,
-                "otype": "Line"
+                "otype": "Polygon"
             },
             "geometry": {
-                "type": "LineString",
+                "type": "Polygon",
                 "coordinates": [
                     [
-                        297.181288,
-                        248.895882
-                    ],
-                    [
-                        245.674496,
-                        183.372119
+                        [
+                            359.5,
+                            463.574629
+                        ],
+                        [
+                            297,
+                            326.489238
+                        ],
+                        [
+                            337,
+                            320.48354
+                        ],
+                        [
+                            337,
+                            289.454101
+                        ],
+                        [
+                            354.5,
+                            282.447453
+                        ],
+                        [
+                            395,
+                            417.075183
+                        ],
+                        [
+                            433,
+                            409.568061
+                        ],
+                        [
+                            438,
+                            434.091328
+                        ],
+                        [
+                            448.5,
+                            457.307297
+                        ],
+                        [
+                            359.5,
+                            463.574629
+                        ]
                     ]
                 ]
             }
@@ -82,21 +144,35 @@
                 "id": 3,
                 "sid": "S3",
                 "isRoute": null,
-                "feat_type": null,
+                "feat_type": "Landmark",
                 "selected": false,
                 "aligned": true,
-                "otype": "Line"
+                "otype": "Polygon"
             },
             "geometry": {
-                "type": "LineString",
+                "type": "Polygon",
                 "coordinates": [
                     [
-                        297.181288,
-                        248.895882
-                    ],
-                    [
-                        519.710635,
-                        255.898421
+                        [
+                            495,
+                            451.300412
+                        ],
+                        [
+                            466.25,
+                            453.052074
+                        ],
+                        [
+                            464.25,
+                            435.535455
+                        ],
+                        [
+                            493.25,
+                            433.533556
+                        ],
+                        [
+                            495,
+                            451.300412
+                        ]
                     ]
                 ]
             }
@@ -107,21 +183,35 @@
                 "id": 4,
                 "sid": "S4",
                 "isRoute": null,
-                "feat_type": null,
+                "feat_type": "Landmark",
                 "selected": false,
                 "aligned": true,
-                "otype": "Line"
+                "otype": "Polygon"
             },
             "geometry": {
-                "type": "LineString",
+                "type": "Polygon",
                 "coordinates": [
                     [
-                        519.710635,
-                        255.898421
-                    ],
-                    [
-                        544.213866,
-                        253.397514
+                        [
+                            526.5,
+                            448.297563
+                        ],
+                        [
+                            495,
+                            451.300412
+                        ],
+                        [
+                            493.25,
+                            433.533556
+                        ],
+                        [
+                            524.25,
+                            430.780944
+                        ],
+                        [
+                            526.5,
+                            448.297563
+                        ]
                     ]
                 ]
             }
@@ -132,25 +222,35 @@
                 "id": 5,
                 "sid": "S5",
                 "isRoute": null,
-                "feat_type": null,
+                "feat_type": "Landmark",
                 "selected": false,
                 "aligned": true,
-                "otype": "Line"
+                "otype": "Polygon"
             },
             "geometry": {
-                "type": "LineString",
+                "type": "Polygon",
                 "coordinates": [
                     [
-                        544.213866,
-                        253.397514
-                    ],
-                    [
-                        541.100602,
-                        121.41783
-                    ],
-                    [
-                        539.701072,
-                        83.322055
+                        [
+                            556,
+                            446.292103
+                        ],
+                        [
+                            550.25,
+                            407.004828
+                        ],
+                        [
+                            521.25,
+                            408.506253
+                        ],
+                        [
+                            526.5,
+                            448.297563
+                        ],
+                        [
+                            556,
+                            446.292103
+                        ]
                     ]
                 ]
             }
@@ -170,12 +270,12 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        539.701072,
-                        83.322055
+                        187.25,
+                        321.237497
                     ],
                     [
-                        531.199951,
-                        62.314437
+                        275,
+                        301.718978
                     ]
                 ]
             }
@@ -195,12 +295,12 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        539.701072,
-                        83.322055
+                        275,
+                        301.718978
                     ],
                     [
-                        711.723758,
-                        70.817521
+                        348,
+                        267.905668
                     ]
                 ]
             }
@@ -220,12 +320,12 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        711.723758,
-                        70.817521
+                        348,
+                        267.905668
                     ],
                     [
-                        710.22356,
-                        44.307907
+                        304.5,
+                        212.675056
                     ]
                 ]
             }
@@ -245,12 +345,12 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        711.723758,
-                        70.817521
+                        348,
+                        267.905668
                     ],
                     [
-                        750.728902,
-                        307.9035
+                        540.5,
+                        271.881926
                     ]
                 ]
             }
@@ -270,12 +370,12 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        750.728902,
-                        307.9035
+                        540.5,
+                        271.881926
                     ],
                     [
-                        816.237541,
-                        299.400416
+                        562.25,
+                        457.769073
                     ]
                 ]
             }
@@ -295,12 +395,12 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        750.728902,
-                        307.9035
+                        540.5,
+                        271.881926
                     ],
                     [
-                        717.724549,
-                        339.414928
+                        563.75,
+                        272.169595
                     ]
                 ]
             }
@@ -320,12 +420,137 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        717.724549,
-                        339.414928
+                        563.75,
+                        272.169595
                     ],
                     [
-                        544.213866,
-                        253.397514
+                        560,
+                        123.050175
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 13,
+                "sid": "S13",
+                "isRoute": null,
+                "feat_type": null,
+                "selected": false,
+                "aligned": true,
+                "otype": "Line"
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        560,
+                        123.050175
+                    ],
+                    [
+                        709.75,
+                        108.044239
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 14,
+                "sid": "S14",
+                "isRoute": null,
+                "feat_type": null,
+                "selected": false,
+                "aligned": true,
+                "otype": "Line"
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        560,
+                        123.050175
+                    ],
+                    [
+                        552.75,
+                        101.029757
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 15,
+                "sid": "S15",
+                "isRoute": null,
+                "feat_type": null,
+                "selected": false,
+                "aligned": true,
+                "otype": "Line"
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        709.75,
+                        108.044239
+                    ],
+                    [
+                        708.25,
+                        85.515037
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 16,
+                "sid": "S16",
+                "isRoute": null,
+                "feat_type": null,
+                "selected": false,
+                "aligned": true,
+                "otype": "Line"
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        709.75,
+                        108.044239
+                    ],
+                    [
+                        743.5,
+                        320.367601
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 17,
+                "sid": "S17",
+                "isRoute": null,
+                "feat_type": null,
+                "selected": false,
+                "aligned": true,
+                "otype": "Line"
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        743.5,
+                        320.367601
+                    ],
+                    [
+                        801.25,
+                        314.612141
                     ]
                 ]
             }
@@ -345,12 +570,12 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        543.600998,
-                        463.018502
+                        743.5,
+                        320.367601
                     ],
                     [
-                        519.710635,
-                        255.898421
+                        712.75,
+                        349.144904
                     ]
                 ]
             }
@@ -370,12 +595,12 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        543.600998,
-                        463.018502
+                        712.75,
+                        349.144904
                     ],
                     [
-                        423.189004,
-                        468.509795
+                        726,
+                        368.663423
                     ]
                 ]
             }
@@ -395,12 +620,12 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        423.189004,
-                        468.509795
+                        563.75,
+                        272.169595
                     ],
                     [
-                        419.688542,
-                        409.488391
+                        712.75,
+                        349.144904
                     ]
                 ]
             }
@@ -420,12 +645,16 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        423.189004,
-                        468.509795
+                        639,
+                        444.395221
                     ],
                     [
-                        284.670737,
-                        475.512335
+                        621,
+                        395.849162
+                    ],
+                    [
+                        726,
+                        368.663423
                     ]
                 ]
             }
@@ -445,12 +674,12 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        284.670737,
-                        475.512335
+                        726,
+                        368.663423
                     ],
                     [
-                        301.086687,
-                        507.51179
+                        756,
+                        415.678142
                     ]
                 ]
             }
@@ -470,12 +699,12 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        284.670737,
-                        475.512335
+                        275,
+                        301.718978
                     ],
                     [
-                        213.170209,
-                        285.909304
+                        338,
+                        457.902819
                     ]
                 ]
             }
@@ -486,35 +715,45 @@
                 "id": 24,
                 "sid": "S24",
                 "isRoute": null,
-                "feat_type": "Landmark",
+                "feat_type": null,
                 "selected": false,
                 "aligned": true,
-                "otype": "Polygon"
+                "otype": "Line"
             },
             "geometry": {
-                "type": "Polygon",
+                "type": "LineString",
                 "coordinates": [
                     [
-                        [
-                            193.339099,
-                            154.862868
-                        ],
-                        [
-                            261.674562,
-                            240.448304
-                        ],
-                        [
-                            118.290937,
-                            301.116656
-                        ],
-                        [
-                            49.339627,
-                            212.893705
-                        ],
-                        [
-                            193.339099,
-                            154.862868
-                        ]
+                        338,
+                        457.902819
+                    ],
+                    [
+                        331.25,
+                        457.951409
+                    ],
+                    [
+                        323.75,
+                        462.956158
+                    ],
+                    [
+                        320.75,
+                        469.212093
+                    ],
+                    [
+                        322.25,
+                        476.468978
+                    ],
+                    [
+                        331,
+                        480.723014
+                    ],
+                    [
+                        337.5,
+                        481.473726
+                    ],
+                    [
+                        343.5,
+                        481.723964
                     ]
                 ]
             }
@@ -525,35 +764,21 @@
                 "id": 25,
                 "sid": "S25",
                 "isRoute": null,
-                "feat_type": "Landmark",
+                "feat_type": null,
                 "selected": false,
                 "aligned": true,
-                "otype": "Polygon"
+                "otype": "Line"
             },
             "geometry": {
-                "type": "Polygon",
+                "type": "LineString",
                 "coordinates": [
                     [
-                        [
-                            535.611318,
-                            153.962906
-                        ],
-                        [
-                            524.609868,
-                            95.191592
-                        ],
-                        [
-                            472.853042,
-                            101.193769
-                        ],
-                        [
-                            481.604196,
-                            158.714629
-                        ],
-                        [
-                            535.611318,
-                            153.962906
-                        ]
+                        343.5,
+                        481.723964
+                    ],
+                    [
+                        356.75,
+                        512.503166
                     ]
                 ]
             }
@@ -564,39 +789,29 @@
                 "id": 26,
                 "sid": "S26",
                 "isRoute": null,
-                "feat_type": "Landmark",
+                "feat_type": null,
                 "selected": false,
                 "aligned": true,
-                "otype": "Polygon"
+                "otype": "Line"
             },
             "geometry": {
-                "type": "Polygon",
+                "type": "LineString",
                 "coordinates": [
                     [
-                        [
-                            553.057539,
-                            90.849741
-                        ],
-                        [
-                            704.130971,
-                            77.700843
-                        ],
-                        [
-                            737.25383,
-                            299.447578
-                        ],
-                        [
-                            715.750994,
-                            323.956466
-                        ],
-                        [
-                            557.230089,
-                            247.928895
-                        ],
-                        [
-                            553.057539,
-                            90.849741
-                        ]
+                        343.5,
+                        481.723964
+                    ],
+                    [
+                        351.75,
+                        477.970403
+                    ],
+                    [
+                        355,
+                        472.715417
+                    ],
+                    [
+                        355.5,
+                        469.729859
                     ]
                 ]
             }
@@ -607,35 +822,33 @@
                 "id": 27,
                 "sid": "S27",
                 "isRoute": null,
-                "feat_type": "Landmark",
+                "feat_type": null,
                 "selected": false,
                 "aligned": true,
-                "otype": "Polygon"
+                "otype": "Line"
             },
             "geometry": {
-                "type": "Polygon",
+                "type": "LineString",
                 "coordinates": [
                     [
-                        [
-                            724.131597,
-                            261.223698
-                        ],
-                        [
-                            713.880245,
-                            201.702113
-                        ],
-                        [
-                            679.625728,
-                            204.703201
-                        ],
-                        [
-                            692.127377,
-                            261.97397
-                        ],
-                        [
-                            724.131597,
-                            261.223698
-                        ]
+                        338,
+                        457.902819
+                    ],
+                    [
+                        345,
+                        457.217989
+                    ],
+                    [
+                        349.5,
+                        460.095719
+                    ],
+                    [
+                        353.75,
+                        464.224636
+                    ],
+                    [
+                        355.5,
+                        469.729859
                     ]
                 ]
             }
@@ -646,35 +859,21 @@
                 "id": 28,
                 "sid": "S28",
                 "isRoute": null,
-                "feat_type": "Landmark",
+                "feat_type": null,
                 "selected": false,
                 "aligned": true,
-                "otype": "Polygon"
+                "otype": "Line"
             },
             "geometry": {
-                "type": "Polygon",
+                "type": "LineString",
                 "coordinates": [
                     [
-                        [
-                            566.860857,
-                            216.457464
-                        ],
-                        [
-                            564.860593,
-                            178.693769
-                        ],
-                        [
-                            585.363297,
-                            179.19395
-                        ],
-                        [
-                            586.363429,
-                            220.208824
-                        ],
-                        [
-                            566.860857,
-                            216.457464
-                        ]
+                        355.5,
+                        469.729859
+                    ],
+                    [
+                        458.75,
+                        463.213043
                     ]
                 ]
             }
@@ -685,35 +884,21 @@
                 "id": 29,
                 "sid": "S29",
                 "isRoute": null,
-                "feat_type": "Landmark",
+                "feat_type": null,
                 "selected": false,
                 "aligned": true,
-                "otype": "Polygon"
+                "otype": "Line"
             },
             "geometry": {
-                "type": "Polygon",
+                "type": "LineString",
                 "coordinates": [
                     [
-                        [
-                            569.232595,
-                            149.422909
-                        ],
-                        [
-                            700.249873,
-                            142.920551
-                        ],
-                        [
-                            688.811974,
-                            86.099379
-                        ],
-                        [
-                            571.106735,
-                            96.202748
-                        ],
-                        [
-                            569.232595,
-                            149.422909
-                        ]
+                        458.75,
+                        463.213043
+                    ],
+                    [
+                        455,
+                        412.16461
                     ]
                 ]
             }
@@ -724,35 +909,21 @@
                 "id": 30,
                 "sid": "S30",
                 "isRoute": null,
-                "feat_type": "Landmark",
+                "feat_type": null,
                 "selected": false,
                 "aligned": true,
-                "otype": "Polygon"
+                "otype": "Line"
             },
             "geometry": {
-                "type": "Polygon",
+                "type": "LineString",
                 "coordinates": [
                     [
-                        [
-                            501.556962,
-                            452.503719
-                        ],
-                        [
-                            536.436561,
-                            449.877766
-                        ],
-                        [
-                            529.810688,
-                            404.61135
-                        ],
-                        [
-                            494.055972,
-                            407.112257
-                        ],
-                        [
-                            501.556962,
-                            452.503719
-                        ]
+                        458.75,
+                        463.213043
+                    ],
+                    [
+                        562.25,
+                        457.769073
                     ]
                 ]
             }
@@ -760,192 +931,8 @@
         {
             "type": "Feature",
             "properties": {
-                "id": 32,
-                "sid": "S32",
-                "isRoute": null,
-                "feat_type": "Landmark",
-                "selected": false,
-                "aligned": true,
-                "otype": "Polygon"
-            },
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [
-                    [
-                        [
-                            466.927395,
-                            454.87958
-                        ],
-                        [
-                            501.556962,
-                            452.503719
-                        ],
-                        [
-                            498.312217,
-                            432.868478
-                        ],
-                        [
-                            464.427065,
-                            435.622597
-                        ],
-                        [
-                            466.927395,
-                            454.87958
-                        ]
-                    ]
-                ]
-            }
-        },
-        {
-            "type": "Feature",
-            "properties": {
-                "id": 33,
-                "sid": "S33",
-                "isRoute": null,
-                "feat_type": "Landmark",
-                "selected": false,
-                "aligned": true,
-                "otype": "Polygon"
-            },
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [
-                    [
-                        [
-                            432.297828,
-                            456.880306
-                        ],
-                        [
-                            466.927395,
-                            454.87958
-                        ],
-                        [
-                            464.427065,
-                            435.622597
-                        ],
-                        [
-                            428.922383,
-                            438.49864
-                        ],
-                        [
-                            432.297828,
-                            456.880306
-                        ]
-                    ]
-                ]
-            }
-        },
-        {
-            "type": "Feature",
-            "properties": {
-                "id": 34,
-                "sid": "S34",
-                "isRoute": null,
-                "feat_type": "Landmark",
-                "selected": false,
-                "aligned": true,
-                "otype": "Polygon"
-            },
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [
-                    [
-                        [
-                            413.420339,
-                            462.007165
-                        ],
-                        [
-                            405.16925,
-                            442.750181
-                        ],
-                        [
-                            400.418624,
-                            435.247461
-                        ],
-                        [
-                            392.167536,
-                            408.487756
-                        ],
-                        [
-                            349.911963,
-                            415.740386
-                        ],
-                        [
-                            319.076531,
-                            314.224787
-                        ],
-                        [
-                            304.655899,
-                            265.959187
-                        ],
-                        [
-                            283.153063,
-                            275.462633
-                        ],
-                        [
-                            283.153063,
-                            307.474242
-                        ],
-                        [
-                            238.147128,
-                            314.476782
-                        ],
-                        [
-                            309.827949,
-                            468.019953
-                        ],
-                        [
-                            413.420339,
-                            462.007165
-                        ]
-                    ]
-                ]
-            }
-        },
-        {
-            "type": "Feature",
-            "properties": {
-                "id": 35,
-                "sid": "S35",
-                "isRoute": null,
-                "feat_type": "Landmark",
-                "selected": false,
-                "aligned": true,
-                "otype": "Polygon"
-            },
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [
-                    [
-                        [
-                            212.338237,
-                            474.53392
-                        ],
-                        [
-                            189.585236,
-                            412.511428
-                        ],
-                        [
-                            97.823135,
-                            431.768411
-                        ],
-                        [
-                            121.826301,
-                            494.040994
-                        ],
-                        [
-                            212.338237,
-                            474.53392
-                        ]
-                    ]
-                ]
-            }
-        },
-        {
-            "type": "Feature",
-            "properties": {
-                "id": 36,
-                "sid": "S36",
+                "id": 31,
+                "sid": "S31",
                 "isRoute": null,
                 "feat_type": null,
                 "selected": false,
@@ -956,17 +943,296 @@
                 "type": "LineString",
                 "coordinates": [
                     [
-                        543.600998,
-                        463.018502
+                        562.25,
+                        457.769073
                     ],
                     [
-                        765.399902,
-                        413.878105
-                    ],
-                    [
-                        717.724549,
-                        339.414928
+                        639,
+                        444.395221
                     ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 32,
+                "sid": "S32",
+                "isRoute": null,
+                "feat_type": null,
+                "selected": false,
+                "aligned": true,
+                "otype": "Line"
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        639,
+                        444.395221
+                    ],
+                    [
+                        654.5,
+                        476.546376
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 33,
+                "sid": "S33",
+                "isRoute": null,
+                "feat_type": null,
+                "selected": false,
+                "aligned": true,
+                "otype": "Line"
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        639,
+                        444.395221
+                    ],
+                    [
+                        756,
+                        415.678142
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 34,
+                "sid": "S34",
+                "isRoute": null,
+                "feat_type": null,
+                "selected": false,
+                "aligned": true,
+                "otype": "Line"
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        756,
+                        415.678142
+                    ],
+                    [
+                        788,
+                        462.550887
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 35,
+                "sid": "S35",
+                "isRoute": null,
+                "feat_type": null,
+                "selected": false,
+                "aligned": true,
+                "otype": "Line"
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        756,
+                        415.678142
+                    ],
+                    [
+                        809,
+                        400.24177
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 37,
+                "sid": "S37",
+                "isRoute": null,
+                "feat_type": "Landmark",
+                "selected": false,
+                "aligned": true,
+                "otype": "Polygon"
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            576.5,
+                            252.978792
+                        ],
+                        [
+                            577,
+                            125.587172
+                        ],
+                        [
+                            702.25,
+                            115.664847
+                        ],
+                        [
+                            726.5,
+                            281.486864
+                        ],
+                        [
+                            724.5,
+                            320.002059
+                        ],
+                        [
+                            704.5,
+                            333.014405
+                        ],
+                        [
+                            576.5,
+                            252.978792
+                        ]
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 38,
+                "sid": "S38",
+                "isRoute": null,
+                "feat_type": "Landmark",
+                "selected": false,
+                "aligned": true,
+                "otype": "Polygon"
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            583,
+                            235.719928
+                        ],
+                        [
+                            583.25,
+                            193.429804
+                        ],
+                        [
+                            612.75,
+                            193.179567
+                        ],
+                        [
+                            611,
+                            235.46969
+                        ],
+                        [
+                            583,
+                            235.719928
+                        ]
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 39,
+                "sid": "S39",
+                "isRoute": null,
+                "feat_type": "Landmark",
+                "selected": false,
+                "aligned": true,
+                "otype": "Polygon"
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            586.5,
+                            176.163423
+                        ],
+                        [
+                            587.5,
+                            129.8695
+                        ],
+                        [
+                            689.5,
+                            122.362378
+                        ],
+                        [
+                            699.5,
+                            171.408912
+                        ],
+                        [
+                            586.5,
+                            176.163423
+                        ]
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 40,
+                "sid": "S40",
+                "isRoute": null,
+                "feat_type": "Landmark",
+                "selected": false,
+                "aligned": true,
+                "otype": "Polygon"
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            688.5,
+                            258.966367
+                        ],
+                        [
+                            680.25,
+                            218.427905
+                        ],
+                        [
+                            708.75,
+                            216.175768
+                        ],
+                        [
+                            716.5,
+                            255.963518
+                        ],
+                        [
+                            688.5,
+                            258.966367
+                        ]
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 41,
+                "sid": "S41",
+                "isRoute": null,
+                "feat_type": null,
+                "selected": false,
+                "aligned": true,
+                "otype": "CircleMarker"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    539.5,
+                    141.488289
                 ]
             }
         }

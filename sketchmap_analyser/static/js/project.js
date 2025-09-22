@@ -758,7 +758,7 @@ function setResults_in_output_div(index,resp){
    console.log("####",resp.sketchMapID);
        cells[index][0].innerHTML = resp.sketchMapID;
        cells[index][2].innerHTML = genResultArray[resp.sketchMapID].overallGen;
-       cells[index][1].innerHTML = resp.overAllCompleteness;
+       cells[index][1].innerHTML = resp.streetCompleteness + "   " + resp.landmarkCompleteness;
        cells[index][3].innerHTML = resp.precision + "    " + resp.recall;
 
 }
@@ -784,6 +784,7 @@ var OverallSummaryCsv = [];
 if (Object.keys(responseArray)!=0){
 for (var i in Object.keys(responseArray)){
         var sketchmap = Object.keys(responseArray)[i];
+        var OverallCompleteness = (parseInt(responseArray[sketchmap].totalSketchedStreets) + parseInt(responseArray[sketchmap].totalSketchedLandmarks))/(parseInt(responseArray[sketchmap].toal_mm_streets) + parseInt(responseArray[sketchmap].total_mm_landmarks))
         CompletenessSummaryCSV.push(sketchmap);
         CompletenessSummaryCSV.push("Completeness");
         CompletenessSummaryCSV.push("Spatial Features , Features in Original Metric map, Features in Generalized Metric map (Excluding Groups) , Drawn Features in Sketch map (Excluding Group), Completeness");
@@ -791,9 +792,10 @@ for (var i in Object.keys(responseArray)){
         CompletenessSummaryCSV.push("Landmarks " + "," + lmCountBeforeGen + "," + responseArray[sketchmap].total_mm_landmarks + "," + responseArray[sketchmap].totalSketchedLandmarks + ',' + responseArray[sketchmap].landmarkCompleteness);
         CompletenessSummaryCSV.push("No. of groups in Streets" + "," + genResultArray[sketchmap].abstExiStreets);
         CompletenessSummaryCSV.push("No. of groups in Landmarks" + "," + genResultArray[sketchmap].absExiBuildings);
-        CompletenessSummaryCSV.push("Missing Features" + "," + missingFeaturesIds[i]);
+        CompletenessSummaryCSV.push("Missing Features,\"" + missingFeaturesIds[i].join(",") + "\"");
         CompletenessSummaryCSV.push("ExtraFeatures" + "," + extraFeaturesIds[i]);
-        CompletenessSummaryCSV.push("OverallCompleteness" + "," + responseArray[sketchmap].overAllCompleteness )
+        CompletenessSummaryCSV.push("AverageCompleteness" + "," + responseArray[sketchmap].overAllCompleteness );
+        CompletenessSummaryCSV.push("OverallCompleteness" + "," + OverallCompleteness );
         CompletenessSummaryCSV.push("   ");
 }
 }
@@ -917,7 +919,7 @@ GeneralizationCSV.push("Sketch Map , BaseId , SketchId , Generalization Type");
 
     }
 
-        GeneralizationCSV.push(sketchmap + ',' + "Features missing in sketch map, " + missingFeaturesIds[i].toString());
+       GeneralizationCSV.push(sketchmap + ',' + "Features missing in sketch map,\"" + missingFeaturesIds[i].join(",") + "\"");
         GeneralizationCSV.push(sketchmap + ',' + "Features drawn extra in sketch map, " + extraFeaturesIds[i].toString());
         GeneralizationCSV.push("   ");
 
