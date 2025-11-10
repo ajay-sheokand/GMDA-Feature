@@ -6,8 +6,6 @@ var extraFeaturesCount = 0;
 var extraFeaturesIds = [];
 var missingFeaturesCount = 0;
 var missingFeaturesIds = [];
-var routeArray = [];
-var sketchRouteArray = [];
 var roundaboutids = {};
 var junctionmergeids = {};
 var qualRelationsBaseMap = [];
@@ -61,6 +59,7 @@ function renderGeoJsonFiles(file) {
          routeOrder = Math.max.apply(Math,RouteSeqOrderArray);
          bid = Math.max.apply(Math, bidArray);
 
+           console.log("checccccckk", data)
            drawnItems = L.geoJSON(data);
            drawnItems.addTo(layerGroupBasemap);
            allDrawnSketchItems[baseMaptitle] = drawnItems;
@@ -149,10 +148,12 @@ SMGeoJsonData = ProcSketchMap.toGeoJSON();
             count = count + 1;
         }
         else{
-           if(group == "True"){
+           if(group == true){
+           console.lo
            if(SMGeoJsonData.features[i].properties.genType3 != undefined && SMGeoJsonData.features[i].properties.genType3.includes("Multi-MultiOmissionMerge")){
             SMGeoJsonData.features[i].properties.id = 'G' + SMGeoJsonData.features[i].properties.groupID;
             SMGeoJsonDataFiltered.features[count]=SMGeoJsonData.features[i];
+            console.log("MULTI_MULTI");
             count = count + 1;
             }
             if(SMGeoJsonData.features[i].properties.otype == "Line"){
@@ -327,8 +328,6 @@ if (BooleanEditSketchMode){
         drawnSketchItems = allDrawnSketchItems[currentsketchMap];
         console.log(drawnSketchItems,"CHECK HERE");
 
-        routeArray = [];
-        sketchRouteArray = [];
         missingFeaturesCount = 0;
         extraFeaturesCount = 0;
         drawnItems.eachLayer(function(blayer){
@@ -350,17 +349,10 @@ if (BooleanEditSketchMode){
             }
         });
 
-        drawnItems.eachLayer(function(blayer){
-           if (blayer.feature.properties.isRoute == "Yes"){
-              routeArray.push(blayer.feature.properties);
-            }
-        });
 
 
-        var byrouteorder = routeArray.slice(0);
-        byrouteorder.sort(function(a,b) {
-             return a.RouteSeqOrder - b.RouteSeqOrder;
-        });
+
+
 
         drawnSketchItems.eachLayer(function(slayer){
                 if (slayer.feature.properties.group){
@@ -379,28 +371,6 @@ if (BooleanEditSketchMode){
 
 
 
-drawnSketchItems.eachLayer(function(slayer){
-           if (slayer.feature.properties.isRoute == "Yes"){
-              sketchRouteArray.push(slayer.feature.properties);
-  }
- });
-
-var bysketchrouteorder = sketchRouteArray.slice(0);
-    bysketchrouteorder.sort(function(a,b) {
-        return a.SketchRouteSeqOrder - b.SketchRouteSeqOrder;
-    });
-
-var routeIDArray = [];
-var sketchIDArray = [];
-for (var i in byrouteorder){
-routeIDArray.push(byrouteorder[i].id);
-}
-
-for (var i in bysketchrouteorder){
-sketchIDArray.push(bysketchrouteorder[i].id);
-}
-var lastSketchStreet = sketchIDArray[sketchIDArray.length -1];
-var lastBaseStreet = routeIDArray[routeIDArray.length - 1];
 
 // Construct the base URL dynamically
 baseUrl = getServiceUrl('generalizations');
@@ -419,8 +389,6 @@ try {
         basedata: JSON.stringify(drawnItems.toGeoJSON()),
         sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
         aligndata: JSON.stringify(AlignmentArray[currentsketchMap]),
-        routedata: JSON.stringify(routeIDArray),
-        sketchroutedata: JSON.stringify(sketchIDArray),
         sketchmapName: JSON.stringify(currentsketchMap)
       }
     });
@@ -433,10 +401,6 @@ try {
       fixedIndex,
       currentsketchMap,
       { [currentsketchMap]: AlignmentArray[currentsketchMap] },
-      routeIDArray,
-      sketchIDArray,
-      lastSketchStreet,
-      lastBaseStreet,
       resp
     );
 
@@ -481,7 +445,8 @@ function getServiceUrl(serviceName) {
         const portMap = {
             generalizations: 8001,
             completeness: 8002,
-            qualitativerelations: 8003
+            qualitativerelations: 8003,
+            validation:8004
         };
         return `${protocol}//${hostName}:${portMap[serviceName]}`;
     }
@@ -490,7 +455,7 @@ function getServiceUrl(serviceName) {
     return `${protocol}//${hostName}`;
 }
 
-function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,routeIDArray,sketchIDArray,lastSketchStreet,lastBaseStreet,resp){
+function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,resp){
  var amalgamation = 0;
  var collapse = 0 ;
  var omissionmerge = 0;
@@ -545,7 +510,7 @@ function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,ro
 
                  }
 
-                 if (item.properties.genType3 != null && item.properties.genType3.includes("Multi-MultiOmissionMerge")){
+                 if (item.properties.genType3 != null && item.properties.genType3.includes("Multi-MultiOmissionMerge") && item.properties.mapType != "Sketch"){
                     multiOmiMergeCount = multiOmiMergeCount + 1 ;
                     multiOmiMergeids[currentsketchMap].push(item.properties.id)
                  }
@@ -758,7 +723,7 @@ function setResults_in_output_div(index,resp){
    console.log("####",resp.sketchMapID);
        cells[index][0].innerHTML = resp.sketchMapID;
        cells[index][2].innerHTML = genResultArray[resp.sketchMapID].overallGen;
-       cells[index][1].innerHTML = resp.streetCompleteness + "   " + resp.landmarkCompleteness;
+       cells[index][1].innerHTML = (resp.totalSketchedStreets+genResultArray[resp.sketchMapID].abstExiStreets)/(resp.toal_mm_streets +genResultArray[resp.sketchMapID].abstExiStreets)*100 + "   " + (resp.totalSketchedLandmarks+ genResultArray[resp.sketchMapID].absExiBuildings)/(resp.total_mm_landmarks+ genResultArray[resp.sketchMapID].absExiBuildings)*100;
        cells[index][3].innerHTML = resp.precision + "    " + resp.recall;
 
 }
@@ -788,14 +753,20 @@ for (var i in Object.keys(responseArray)){
         CompletenessSummaryCSV.push(sketchmap);
         CompletenessSummaryCSV.push("Completeness");
         CompletenessSummaryCSV.push("Spatial Features , Features in Original Metric map, Features in Generalized Metric map (Excluding Groups) , Drawn Features in Sketch map (Excluding Group), Completeness");
-        CompletenessSummaryCSV.push("Street segments " + "," + streetCountBeforeGen + "," + responseArray[sketchmap].toal_mm_streets + "," + responseArray[sketchmap].totalSketchedStreets + ',' + responseArray[sketchmap].streetCompleteness );
-        CompletenessSummaryCSV.push("Landmarks " + "," + lmCountBeforeGen + "," + responseArray[sketchmap].total_mm_landmarks + "," + responseArray[sketchmap].totalSketchedLandmarks + ',' + responseArray[sketchmap].landmarkCompleteness);
-        CompletenessSummaryCSV.push("No. of groups in Streets" + "," + genResultArray[sketchmap].abstExiStreets);
-        CompletenessSummaryCSV.push("No. of groups in Landmarks" + "," + genResultArray[sketchmap].absExiBuildings);
+        CompletenessSummaryCSV.push("Street segments(excluding group alignments)" + "," + streetCountBeforeGen + "," + responseArray[sketchmap].toal_mm_streets + "," + responseArray[sketchmap].totalSketchedStreets + ',' + responseArray[sketchmap].streetCompleteness );
+        CompletenessSummaryCSV.push("Landmarks(excluding group alignments)" + "," + lmCountBeforeGen + "," + responseArray[sketchmap].total_mm_landmarks + "," + responseArray[sketchmap].totalSketchedLandmarks + ',' + responseArray[sketchmap].landmarkCompleteness);
+        CompletenessSummaryCSV.push("No. of group alignments in Streets" + "," + genResultArray[sketchmap].abstExiStreets);
+        CompletenessSummaryCSV.push("No. of groups alignments in Landmarks" + "," + genResultArray[sketchmap].absExiBuildings);
+        CompletenessSummaryCSV.push("Street segments(including group alignments)" + "," + streetCountBeforeGen + "," + (responseArray[sketchmap].toal_mm_streets +genResultArray[sketchmap].abstExiStreets)  + "," + (responseArray[sketchmap].totalSketchedStreets+genResultArray[sketchmap].abstExiStreets) + ',' + (responseArray[sketchmap].totalSketchedStreets+genResultArray[sketchmap].abstExiStreets)/(responseArray[sketchmap].toal_mm_streets +genResultArray[sketchmap].abstExiStreets)*100);
+        CompletenessSummaryCSV.push("Landmarks(including group alignments)" + "," + lmCountBeforeGen + "," + (responseArray[sketchmap].total_mm_landmarks+ genResultArray[sketchmap].absExiBuildings) + "," + (responseArray[sketchmap].totalSketchedLandmarks+ genResultArray[sketchmap].absExiBuildings) + ',' + (responseArray[sketchmap].totalSketchedLandmarks+ genResultArray[sketchmap].absExiBuildings)/(responseArray[sketchmap].total_mm_landmarks+ genResultArray[sketchmap].absExiBuildings)*100);
         CompletenessSummaryCSV.push("Missing Features,\"" + missingFeaturesIds[i].join(",") + "\"");
         CompletenessSummaryCSV.push("ExtraFeatures" + "," + extraFeaturesIds[i]);
-        CompletenessSummaryCSV.push("AverageCompleteness" + "," + responseArray[sketchmap].overAllCompleteness );
-        CompletenessSummaryCSV.push("OverallCompleteness" + "," + OverallCompleteness );
+        var streetcomp = (responseArray[sketchmap].totalSketchedStreets+genResultArray[sketchmap].abstExiStreets)/(responseArray[sketchmap].toal_mm_streets +genResultArray[sketchmap].abstExiStreets)*100;
+        var buildingcomp = (responseArray[sketchmap].totalSketchedLandmarks+ genResultArray[sketchmap].absExiBuildings)/(responseArray[sketchmap].total_mm_landmarks+ genResultArray[sketchmap].absExiBuildings)*100
+        CompletenessSummaryCSV.push("AverageCompleteness" + "," + (streetcomp + buildingcomp)/2);
+        var totalFeaturecountinBasemap = (responseArray[sketchmap].toal_mm_streets +genResultArray[sketchmap].abstExiStreets)+(responseArray[sketchmap].total_mm_landmarks+ genResultArray[sketchmap].absExiBuildings)
+        var totalFeaturecountinSketchmap = (responseArray[sketchmap].totalSketchedStreets+genResultArray[sketchmap].abstExiStreets) + (responseArray[sketchmap].totalSketchedLandmarks+ genResultArray[sketchmap].absExiBuildings)
+        CompletenessSummaryCSV.push("OverallCompleteness" + "," + totalFeaturecountinSketchmap/totalFeaturecountinBasemap*100 );
         CompletenessSummaryCSV.push("   ");
 }
 }

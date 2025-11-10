@@ -15,7 +15,8 @@ import json
 import os
 import math
 import bcrypt
-from shapely import geometry, ops, Geometry
+from shapely import geometry, ops, Geometry, snap, unary_union, get_coordinates
+from shapely.strtree import STRtree
 from shapely.geometry import Point, Polygon, shape
 from shapely import LineString, MultiPoint, Polygon
 from shapely.geometry import Polygon, LineString, MultiLineString
@@ -32,73 +33,7 @@ import glob
 from shapely.plotting import plot_line
 
 
-def routedirection(routedata,inputfile):
-    # Network flow
-    r_data = json.loads(str(routedata))
-    #nf_ids = set(data['id'] for data in r_data)
-    ls=[]
-    for feature in inputfile['features']:
-        properties = feature['properties']
-        id = properties.get('id')
 
-        if id in r_data:
-            geo = feature['geometry']
-            coor = geo['coordinates']
-            ls.append(coor)
-            # ls.append((id,coor))
-
-    # def convert_to_list(data):
-    #     if isinstance(data, (tuple, set)):  # If it's a tuple or set, convert to list
-    #         return [convert_to_list(item) for item in data]  # Recursively convert inner items
-    #     elif isinstance(data, list):  # If it's a list, process its items
-    #         return [convert_to_list(item) for item in data]
-    #     else:  # If it's neither, return the data as is
-    #         return data
-
-    # # Apply the conversion recursively
-    # data = convert_to_list(ls)
-
-    # Function to ensure segments are connected and properly aligned
-    def align_segments(segments):
-        if not segments:
-            return []
-
-        aligned_segments = [segments[0]]  # Start with the first segment
-
-        for segment in segments[1:]:
-            last_segment = aligned_segments[-1]
-
-            # If the end of the last segment doesn't match the start of the current segment, reverse the current segment
-            if last_segment[-1] != segment[0]:
-                segment.reverse()
-
-            # Add the properly aligned segment to the list
-            aligned_segments.append(segment)
-
-        return aligned_segments
-
-    # Align the segments so that they are continuous
-    aligned_segments = align_segments(ls)
-
-    # result = {}
-    # # Iterate through the list
-    # for item in aligned_segments:
-    #     # If the first element is an integer, it is the key
-    #     if isinstance(item[0], int):
-    #         key = item[0]
-    #         # Ensure the value is wrapped in a list
-    #         result[key] = [list(item[1])]
-    #     # If the second element is an integer, it is the key
-    #     elif isinstance(item[1], int):
-    #         key = item[1]
-    #         result[key] = [list(item[0])]
-
-    # breakpoint()
-    result = dict(zip(r_data, aligned_segments))
-
-    return(result)
-
-import logging
 
 @ensure_csrf_cookie
 def requestFME(request):
@@ -106,12 +41,11 @@ def requestFME(request):
     basedata = request.POST.get('basedata')
     sketchdata = request.POST.get('sketchdata')
     aligndata = request.POST.get('aligndata')
-    routedata = request.POST.get('routedata')
-    sketchroutedata= request.POST.get('sketchroutedata')
     sketchname = request.POST.get('sketchmapName')
-    print ('sketchmap', sketchname)
+    print ('sketchmap', sketchname,basedata)
 
     USER_PROJ_DIR = "generalizedMap"
+
     baseMapdata = json.loads(basedata)
     sketchMapdata = json.loads(sketchdata)
     alignMapdata = json.loads(aligndata)
@@ -141,11 +75,12 @@ def requestFME(request):
     except IOError:
         print("Files written")
 
-    result= spatial_transformation(routedata,sketchroutedata)
+    result= spatial_transformation()
 
     return HttpResponse(result)
 
-def spatial_transformation(routedata,sketchroutedata):
+missingstreet = None
+def spatial_transformation():
     USER_PROJ_DIR = "generalizedMap"
     Inputbasepath = os.path.join(USER_PROJ_DIR,"inputbaseMap"+".json")
     Inputsketchpath = os.path.join(USER_PROJ_DIR,"inputsketchMap"+".json")
@@ -653,7 +588,6 @@ def spatial_transformation(routedata,sketchroutedata):
         if (key != "checkAlignnum"):
             #print ("sub", key, value)
             if isinstance(value, dict) and "BaseAlign" in value:
-                print("check",key,value["BaseAlign"])
                 if value.get("BaseAlign", {}).get("0", []):
                     base_align_value = value["BaseAlign"]["0"][0]
                     sketch_align_value = value["SketchAlign"]["0"]
@@ -853,7 +787,7 @@ def spatial_transformation(routedata,sketchroutedata):
     # Only proceed if connected
     if connection_status == 'connected':
         rac_l_res = find_features(data_ip, loop_ids, features)
-        # print(rac_l_res)
+        print("check ids of missing rac",rac_l_res,loop_ids)
 
         for group in rac_l_res:
             # Create a MultiLineString from the current group
@@ -1194,7 +1128,6 @@ def spatial_transformation(routedata,sketchroutedata):
 
     # print(features)
 
-
     feature_collection = FeatureCollection(features)
 
     base = open(Inputbasepath)
@@ -1357,7 +1290,9 @@ def spatial_transformation(routedata,sketchroutedata):
             ToBeMergedSegmentsGDF = gpd.GeoDataFrame.from_features(basefeaturesForJM, crs = 'epsg:4326')
             overlay = gpd.overlay(missinggdf, ToBeMergedSegmentsGDF, how='intersection', keep_geom_type=False)
             id_counts = overlay['id_1'].value_counts()
+            global missingstreet
             missingstreet = id_counts[id_counts >= 4].index
+            print("alsooooo here",missingstreet)
             if  len(missingstreet) != 0:
                 missingstreetsGeom = [geo for geo in data_ip['features'] if geo['properties']['id'] in missingstreet]
                 centroidMissingstreetsGeom = geometry.LineString(missingstreetsGeom[0]['geometry']['coordinates']).centroid
@@ -1481,13 +1416,17 @@ def spatial_transformation(routedata,sketchroutedata):
     for x, ids, sids in zip(s_a2e_l_res, a2e_ids, s_a2e_ids_l):
         multi_line = geometry.MultiLineString(x)
         if is_connected(multi_line):
+            print("it should reach here", ids, sids)
             merged_line = ops.linemerge(multi_line)
             g1_a2e = geometry.shape(merged_line)
+            gen_type = "Multi-MultiOmissionMerge"
+
         else:
             g1_a2e = multi_line
+            gen_type = "Others"
 
         # Gather properties from the sketchdata
-        merged_properties = {"mapType": "Sketch"}
+        merged_properties = {"mapType": "Sketch", "genType3":gen_type}
         for feature in sketchdata['features']:
             if feature['properties']['sid'] in sids:
                 merged_properties.update(feature['properties'])
@@ -1514,17 +1453,10 @@ def spatial_transformation(routedata,sketchroutedata):
 
         features.append(Feature(geometry=geometry.mapping(g1_a2e), properties=merged_properties))
 
-    sketchroute= routedirection(sketchroutedata,sketchdata)
+        print("cheeeeeekkk", features)
 
-    for feature in sketchdata['features']:
-        properties = feature['properties']
-        id = properties.get('id')
-        if id is not None:
-        # Ensure id is a tuple if needed
-            id = tuple(id) if isinstance(id, list) else id
-            if id in sketchroute:
-                geo = feature['geometry']
-                geo['coordinates'] = sketchroute[id]
+
+
 
     # Assuming you have two feature collections, feature_collection1 and feature_collection2
     combined_feature_collection = {
@@ -1533,12 +1465,28 @@ def spatial_transformation(routedata,sketchroutedata):
     }
 
     # Finally append the missing features
+    def to_iterable(x):
+        if x is None:
+            return []
+        if hasattr(x, "values"):  # works for pandas Series/Index/DataFrame
+            return x.values.tolist()
+        return list(x)  # works for lists, tuples, sets, etc.
 
     for x, prop in zip(mis_res_l, mis_ids_l_prop):
-        line = shapely.geometry.LineString(x)
-        wkt_string = line.wkt
-        features.append(Feature(geometry=shapely.wkt.loads(wkt_string),
-                                properties = prop ))
+        global missingstreet
+        print("check if it prints here",loop_ids,prop.get('id'),missingstreet)
+        temp_loop_id=[]
+        if loop_ids is not None and len(loop_ids)!=0:
+            temp_loop_id = loop_ids[0]
+        temp_loop_ids = set(to_iterable(temp_loop_id))
+        missingstreet_ids = set(to_iterable(missingstreet))
+        if prop.get('id') not in temp_loop_ids and prop.get('id') not in missingstreet_ids:
+            print("also here", prop.get('id'))
+            line = shapely.geometry.LineString(x)
+            wkt_string = line.wkt
+            features.append(Feature(geometry=shapely.wkt.loads(wkt_string),
+                                    properties = prop ))
+
 
     for x, prop in zip(mis_res_p, mis_ids_p_prop):
         polygon = shapely.geometry.Polygon(x)
@@ -1546,9 +1494,6 @@ def spatial_transformation(routedata,sketchroutedata):
         features.append(Feature(geometry=shapely.wkt.loads(wkt_string),
                                 properties= prop))
 
-    #print ("PAAAAAPOM", feature_collection)
-
-    #f_out = routedirection(routedata, feature_collection)
 
 
     # Append the features from feature_collection1 to the combined feature collection

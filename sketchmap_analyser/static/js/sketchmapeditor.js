@@ -48,6 +48,7 @@ $(function() {
 
 
 
+
 function loadFromImage(){
 addedClickBase = false;
 var imageList = document.getElementById('fromfile').files;
@@ -83,6 +84,8 @@ function renderImageFile(file, location) {
         var BMLoaded = new L.imageOverlay(image.src,bounds);
         BMLoaded.addTo(baseMap);
         baseMap.fitBounds(bounds);
+        enableDefaultArrows(baseMap);
+
         drawnItems = new L.geoJson();
         layerGroupBasemap.addTo(baseMap);
         layerGroupBasemapGen.addTo(baseMap);
@@ -102,6 +105,85 @@ $( "#loaded" ).prop( "checked", true );
 $( "#loaded" ).prop( "disabled", false );
 
 }
+
+function isPlainPolyline(layer) {
+  return (layer instanceof L.Polyline) && !(layer instanceof L.Polygon);
+}
+
+function attachAutoArrows(layer, { size = 10 } = {}) {
+  if (!isPlainPolyline(layer) || layer._arrowDecorator) return;
+  const map = layer._map;
+
+  // create decorator
+  const makeDecorator = () => L.polylineDecorator(layer, {
+    patterns: [{
+      offset: '10%',
+      repeat: '25%',
+      symbol: L.Symbol.arrowHead({
+        pixelSize: size,
+        polygon: true,
+        pathOptions: {
+          color: layer.options?.color || '#e8913a',
+          opacity: layer.options?.opacity ?? 0.7,
+          fillOpacity: layer.options?.opacity ?? 0.7,
+          weight: 1
+        }
+      })
+    }]
+  }).addTo(map);
+
+  layer._arrowDecorator = makeDecorator();
+
+  // keep geometry in sync while editing
+  const syncPath = () => layer._arrowDecorator && layer._arrowDecorator.setPaths(layer);
+  layer.on('pm:edit', syncPath);
+  layer.on('pm:vertexadded', syncPath); // for some Leaflet.pm versions
+
+  // update arrow styling whenever the line style changes
+  const origSetStyle = layer.setStyle;
+  layer.setStyle = function(style) {
+    const ret = origSetStyle.call(this, style);
+    const color = this.options?.color || '#e8913a';
+    const op    = this.options?.opacity ?? 0.7;
+    if (this._arrowDecorator) {
+      this._arrowDecorator.setPatterns([{
+        offset: '10%',
+        repeat: '25%',
+        symbol: L.Symbol.arrowHead({
+          pixelSize: size,
+          polygon: true,
+          pathOptions: { color, opacity: op, fillOpacity: op, weight: 1 }
+        })
+      }]);
+      this._arrowDecorator.setPaths(this);
+    }
+    return ret;
+  };
+
+  // clean up if the line is removed
+  layer.on('remove', () => {
+    if (layer._arrowDecorator && layer._arrowDecorator._map) {
+      layer._arrowDecorator._map.removeLayer(layer._arrowDecorator);
+    }
+    layer._arrowDecorator = null;
+  });
+}
+
+
+function enableDefaultArrows(map) {
+  map.on('layeradd', e => {
+    const layer = e.layer;
+    // wait until the layer is on the map so layer._map exists
+    if (isPlainPolyline(layer)) {
+      // ensure it runs after the layer is actually added
+      setTimeout(() => attachAutoArrows(layer), 0);
+    }
+  });
+}
+
+
+
+
 
 
  var routeButton = L.easyButton({
@@ -414,23 +496,66 @@ multibuildingButton.addTo(baseMap);
 
 
 $("#saveBM").click(function(){
-drawnItems.eachLayer(function(blayer){
-        blayer.off('click');
-});
 
-if (addedClickBase == false){
-addClickBase();
-}
-$( "#marked" ).prop( "checked", true );
-$( "#marked" ).prop( "disabled", false );
-baseMap.pm.disableDraw();
-baseMap.pm.removeControls();
-drawnItems.setStyle({opacity:1});
+var routeArray=[];
+var routeIDArray=[];
+  drawnItems.eachLayer(function(blayer){
+           if (blayer.feature.properties.isRoute == "Yes"){
+              routeArray.push(blayer.feature.properties);
+            }
+        });
+     var byrouteorder = routeArray.slice(0);
+        byrouteorder.sort(function(a,b) {
+             return a.RouteSeqOrder - b.RouteSeqOrder;
+        });
+
+     for (var i in byrouteorder){
+        routeIDArray.push(byrouteorder[i].id);
+     }
+
+     console.log(routeIDArray,"check check");
+
+ baseUrl = getServiceUrl('validation');
+$.ajax({
+            headers: { "X-CSRFToken": $.cookie("csrftoken") },
+            url: `${baseUrl}/validation/validate/`,
+            type: 'POST',
+            data: {
+                type: "metric",
+                metricdata: JSON.stringify(drawnItems.toGeoJSON()),
+                route: JSON.stringify(routeIDArray)
+            },
+            success: function(response) {
+                console.log("success",response);
+                if (drawnItems != null) {
+                    layerGroupBasemap.removeLayer(drawnItems);
+                 }
+                drawnItems = L.geoJSON(response);
+                drawnItems.addTo(layerGroupBasemap);
+                styleLayers();
+                drawnItems.eachLayer(function(blayer){
+                    blayer.off('click');
+                });
+
+                if (addedClickBase == false){
+                    addClickBase();
+                }
+                $( "#marked" ).prop( "checked", true );
+                $( "#marked" ).prop( "disabled", false );
+                baseMap.pm.disableDraw();
+                baseMap.pm.removeControls();
+                drawnItems.setStyle({opacity:1});
 
 
-baseMap.removeControl(routeButton);
+                baseMap.removeControl(routeButton);
 
-allDrawnSketchItems[baseMaptitle] = drawnItems;
+                allDrawnSketchItems[baseMaptitle] = drawnItems;
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('Error in completeness analysis:', errorThrown);
+            }
+        });
+
 });
 
 
@@ -486,6 +611,7 @@ drawnItems.eachLayer(function(blayer){
         var SMLoaded = new L.imageOverlay(image.src,bounds);
         SMLoaded.addTo(sketchMap);
         sketchMap.fitBounds(bounds);
+        enableDefaultArrows(sketchMap);
         sketchMaptitle = $(e.target).parent().attr("data-original-title");
         console.log(allDrawnSketchItems);
             labelButtonSketchMap.addTo(sketchMap);
@@ -930,9 +1056,54 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
    }
 
     $('#saveSM').click(function(){
-         BooleanEditSketchMode = false;
-         saveSketchMap();
+        var sketchIDArray = [];
+        var sketchRouteArray = [];
+        drawnSketchItems.eachLayer(function(slayer){
+           if (slayer.feature.properties.isRoute == "Yes"){
+              sketchRouteArray.push(slayer.feature.properties);
+        }
+        });
 
+        var bysketchrouteorder = sketchRouteArray.slice(0);
+            bysketchrouteorder.sort(function(a,b) {
+                return a.SketchRouteSeqOrder - b.SketchRouteSeqOrder;
+            });
+
+        for (var i in bysketchrouteorder){
+            sketchIDArray.push(bysketchrouteorder[i].id);
+        }
+
+
+         baseUrl = getServiceUrl('validation');
+        $.ajax({
+            headers: { "X-CSRFToken": $.cookie("csrftoken") },
+            url: `${baseUrl}/validation/validate/`,
+            type: 'POST',
+            data: {
+                type: "sketch",
+                sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
+                alignment: JSON.stringify(alignmentArraySingleMap),
+                route: JSON.stringify(sketchIDArray)
+            },
+            success: function(response) {
+                console.log("successsketch",response.updated_sketch);
+                 if (drawnSketchItems != null) {
+                    sketchMap.removeLayer(drawnSketchItems);
+                 }
+                drawnSketchItems = L.geoJSON(response.updated_sketch);
+                drawnSketchItems.addTo(sketchMap);
+                styleLayers();
+                hoverfunction();
+
+                BooleanEditSketchMode = false;
+                alignmentArraySingleMap = response.updated_alignment;
+                saveSketchMap();
+
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('Error in completeness analysis:', errorThrown);
+            }
+        });
     });
 
 
