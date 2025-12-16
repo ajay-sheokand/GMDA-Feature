@@ -2,45 +2,30 @@ import os
 from django.shortcuts import render
 from django.http import HttpResponse
 import json
-import geopandas as gpd
 from shapely import ops, union_all,reverse
-from shapely.ops import linemerge
-from shapely.geometry import Point
-from shapely.ops import snap
-import geopandas as gpd
-from shapely.geometry import Point, box
-from shapely.ops import snap
+from shapely.geometry import Point, box, LineString
+from shapely.ops import snap, unary_union, linemerge
+import numbers
 import numpy as np
-from scipy.spatial import cKDTree
-
-
 import geopandas as gpd
 import pandas as pd
 import networkx as nx
-import shapely
-from shapely.ops import linemerge
 from collections import defaultdict
 import copy
 
-def merge_simple_intersections(gdf):
-    # Work only with LineStrings
-    linegdf = gdf[gdf.geometry.type == "LineString"].copy().reset_index(drop=True)
-
+def merge_simple_intersections(linegdf):
 
     nodes = []
-    for line in gdf.geometry:
+    for line in linegdf.geometry:
         nodes.append(Point(line.coords[0]))
         nodes.append(Point(line.coords[-1]))
 
-    nodes_gs = gpd.GeoSeries(nodes, crs=gdf.crs)
+    nodes_gs = gpd.GeoSeries(nodes)
     unique_nodes = nodes_gs.drop_duplicates()
 
 
     streetsegments_geoseries = linegdf.geometry
 
-    # Ensure both have same CRS
-    if unique_nodes.crs != streetsegments_geoseries.crs:
-        streetsegments_geoseries = streetsegments_geoseries.to_crs(unique_nodes.crs)
 
     # Build spatial index for lines
     sindex = streetsegments_geoseries.sindex
@@ -68,7 +53,7 @@ def merge_simple_intersections(gdf):
         })
 
     # Return GeoDataFrame
-    pointsandlines =  gpd.GeoDataFrame(records, crs=unique_nodes.crs)
+    pointsandlines =  gpd.GeoDataFrame(records)
 
 
     filteredsegments = pointsandlines[pointsandlines["n_intersections"] == 2]
@@ -84,6 +69,7 @@ def merge_simple_intersections(gdf):
     merged_records = []
     merged_ids = set()
     id_mapping = {}
+    merged_audit = []
 
     for component in nx.connected_components(G):
         component_ids = list(component)
@@ -103,8 +89,13 @@ def merge_simple_intersections(gdf):
         for old_id in component_ids:
             id_mapping[old_id] = new_id
 
+        merged_audit.append({
+            "new_id": new_id,
+            "merged_from": component_ids
+        })
+
     # --- STEP 4: Combine back
-    merged_gdf = gpd.GeoDataFrame(merged_records, crs=gdf.crs)
+    merged_gdf = gpd.GeoDataFrame(merged_records)
     cleaned_gdf = linegdf[~linegdf["id"].isin(merged_ids)].copy()
     cleaned_gdf = pd.concat([cleaned_gdf, merged_gdf], ignore_index=True)
 
@@ -117,28 +108,20 @@ def merge_simple_intersections(gdf):
 
 
 
-    return geojson_str, id_mapping
+    return geojson_str, id_mapping, merged_audit
 
 
 
 
-def snap_line_endpoints(gdf, bounds=[[0,0],[600,850]]):
-    """
-    Snaps endpoints of LineStrings in a GeoDataFrame to each other using tolerance
-    derived from bounds extent.
-    """
-    import geopandas as gpd
-    import numpy as np
-    from shapely.geometry import Point, box
-    from shapely.ops import unary_union, snap
+def snap_line_endpoints(lines_gdf, bounds=[[0,0],[600,850]]):
 
-    # Ensure we work with LineStrings
-    lines_gdf = gdf[gdf.geometry.type=="LineString"].copy().reset_index(drop=True)
+    # store before geometries as WKT (simple, fast)
+    before_wkt = {row["id"]: row.geometry.wkt for _, row in lines_gdf.iterrows()}
 
     # Extract endpoints
     endpoints = [Point(line.coords[0]) for line in lines_gdf.geometry] + \
                 [Point(line.coords[-1]) for line in lines_gdf.geometry]
-    endpoints_gs = gpd.GeoSeries(endpoints, crs=gdf.crs)
+    endpoints_gs = gpd.GeoSeries(endpoints)
 
     bounds = [[0, 0], [600, 850]]  # xmin, ymin, xmax, ymax in coordinate units
     # Compute tolerance from bounds in same units as coordinates
@@ -157,11 +140,90 @@ def snap_line_endpoints(gdf, bounds=[[0,0],[600,850]]):
         lambda g: snap(g, endpoints_union, tolerance)
     )
 
-    return snapped_lines
+    # detect real changes
+    changed_ids = []
+    for _, row in snapped_lines.iterrows():
+        _id = row["id"]
+        if row.geometry.wkt != before_wkt[_id]:
+            changed_ids.append(_id)
+
+    print(changed_ids, "changed",snapped_lines)
+
+    return snapped_lines,changed_ids
+
+def find_snapped_groups(original_lines_gdf, snapped_lines_gdf, id_col="id"):
+    # Step 1: before intersections
+    before_pairs = endpoint_intersection_pairs(original_lines_gdf, id_col=id_col)
+    print("before", before_pairs)
+
+    # Step 2: after intersections
+    after_pairs = endpoint_intersection_pairs(snapped_lines_gdf, id_col=id_col)
+    print("after", after_pairs)
+
+    # Step 3: pairs that are new (were not intersecting before)
+    new_pairs = after_pairs - before_pairs
+
+    print ("check check", new_pairs)
+
+    return new_pairs
 
 
+# small helpers
+def _to_native_id(x):
+    # convert numpy/pandas ints to native int when possible, else str
+    try:
+        return int(x)
+    except Exception:
+        return str(x)
+
+def _id_sort_key(x):
+    # sort numeric ids numerically, strings lexicographically
+    if isinstance(x, int):
+        return (0, x)
+    try:
+        xi = int(x)
+        return (0, xi)
+    except Exception:
+        return (1, str(x))
 
 
+def endpoint_intersection_pairs(lines_gdf, id_col="id"):
+    rows = []
+
+    for _, row in lines_gdf.iterrows():
+        geom = row.geometry
+        if geom is None or geom.geom_type != "LineString":
+            continue
+
+        sid = row[id_col]
+        coords = list(geom.coords)
+        print(coords, "check check check")
+        for (x, y) in coords:
+            rows.append({"id": sid, "x": x, "y": y})
+
+    if not rows:
+        return set()
+
+    df_ep = pd.DataFrame(rows)
+    print(df_ep, "check here")
+
+    # group by coordinate, collect ids that meet at that coordinate
+    grouped = df_ep.groupby(["x", "y"])["id"].apply(list)
+
+    pairs = set()
+    for seg_ids in grouped:
+        print("idssss", seg_ids)
+        if len(seg_ids) < 2:
+            continue
+        seg_ids = [_to_native_id(s) for s in seg_ids]
+        for i in range(len(seg_ids)):
+            for j in range(i + 1, len(seg_ids)):
+                a, b = seg_ids[i], seg_ids[j]
+                if a == b:
+                    continue
+                pairs.add(frozenset((a, b)))
+
+    return pairs
 
 def combine_by_basealign(alignment):
     combined = defaultdict(list)
@@ -249,7 +311,6 @@ def validateRoute(line_gdf, route_ids, id_col="id", inplace=False):
         next_id = route_ids[i + 1]
         curr_idx = id_to_idx.get(curr_id)
         next_idx = id_to_idx.get(next_id)
-        print(curr_id,next_id,curr_idx,next_idx)
 
         if curr_idx is None or next_idx is None:
             continue  # skip missing ids
@@ -267,62 +328,237 @@ def validateRoute(line_gdf, route_ids, id_col="id", inplace=False):
 
 
 
+def to_builtin_types(obj):
+    """
+    Recursively convert numpy / pandas types to native Python types
+    Useful just before json.dumps
+    """
+    # primitives
+    if isinstance(obj, (str, bool, type(None))):
+        return obj
+    if isinstance(obj, numbers.Integral) and not isinstance(obj, bool):
+        return int(obj)
+    if isinstance(obj, numbers.Real):
+        return float(obj)
+    # numpy scalar types
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        return float(obj)
+    # mapping
+    if isinstance(obj, dict):
+        return { to_builtin_types(k): to_builtin_types(v) for k, v in obj.items() }
+    # list/tuple
+    if isinstance(obj, (list, tuple, set)):
+        return [to_builtin_types(i) for i in obj]
+    # fallback to string
+    return str(obj)
+
+
+
+def apply_approved_snaps(line_gdf, snap_groups, id_col="id", inplace=False):
+
+
+    gdf = line_gdf if inplace else line_gdf.copy()
+
+    # id -> row index
+    id_to_idx = {row_id: idx for idx, row_id in gdf[id_col].items()}
+
+    for group in snap_groups:
+        if not group or len(group) < 2:
+            continue
+
+        # anchor is the first id in the group
+        anchor_id = group[0]
+        anchor_idx = id_to_idx.get(anchor_id)
+        if anchor_idx is None:
+            continue
+
+        anchor_geom = gdf.at[anchor_idx, "geometry"]
+        anchor_coords = list(anchor_geom.coords)
+        anchor_endpoints = [anchor_coords[0], anchor_coords[-1]]  # (x,y) tuples
+
+        # snap all other lines in the group to the anchor endpoints
+        for sid in group[1:]:
+            idx = id_to_idx.get(sid)
+            if idx is None:
+                continue
+
+            geom = gdf.at[idx, "geometry"]
+            coords = list(geom.coords)
+            if len(coords) < 2:
+                continue
+
+            # endpoints of this line
+            ep = [coords[0], coords[-1]]
+
+            # find which endpoint (start or end) is closest to which anchor endpoint
+            min_dist2 = float("inf")
+            best_anchor = None
+            best_ep_idx = None
+
+            for a in anchor_endpoints:
+                for j, e in enumerate(ep):
+                    dx = a[0] - e[0]
+                    dy = a[1] - e[1]
+                    d2 = dx*dx + dy*dy  # squared distance
+                    if d2 < min_dist2:
+                        min_dist2 = d2
+                        best_anchor = a
+                        best_ep_idx = j
+
+            # move that endpoint to the chosen anchor coord
+            if best_ep_idx == 0:
+                coords[0] = best_anchor
+            else:
+                coords[-1] = best_anchor
+
+            gdf.at[idx, "geometry"] = LineString(coords)
+
+    return gdf
+
+from shapely.ops import linemerge
+
+def apply_approved_merges(line_gdf, merge_groups, id_col="id", inplace=False):
+    print("mergepairs", merge_groups)
+
+    gdf = line_gdf if inplace else line_gdf.copy()
+
+    # id -> row index
+    id_to_idx = {row_id: idx for idx, row_id in gdf[id_col].items()}
+
+    rows_to_drop = []
+
+    for group in merge_groups:
+        if not group or len(group) < 2:
+            continue
+
+        # collect valid indices for this group
+        idxs = []
+        for sid in group:
+            print("mergecheck", sid)
+            idx = id_to_idx.get(sid)
+            if idx is not None:
+                idxs.append(idx)
+
+        if len(idxs) < 2:
+            continue
+
+        # geometries to merge
+        geoms = list(gdf.loc[idxs, "geometry"])
+        merged_geom = linemerge(geoms)
+
+        # representative = first id in group
+        rep_id = group[0]
+        rep_idx = id_to_idx.get(rep_id)
+        if rep_idx is None:
+            # fallback: first index in idxs
+            rep_idx = idxs[0]
+            rep_id = gdf.at[rep_idx, id_col]
+
+        # assign merged geometry to representative row
+        gdf.at[rep_idx, "geometry"] = merged_geom
+
+        # mark other rows for deletion
+        for idx in idxs:
+            if idx != rep_idx:
+                rows_to_drop.append(idx)
+
+    if rows_to_drop:
+        gdf = gdf.drop(index=rows_to_drop).reset_index(drop=True)
+
+    return gdf
 
 
 def validate(request):
-    """
-    Django view: receives metricMap JSON (likely GeoJSON),
-    merges street segments that only touch at simple intersections,
-    returns cleaned network as GeoJSON.
-    """
     type= request.POST.get('type')
+    action = request.POST.get('action', 'preview')  # 'preview' or 'apply'
 
     if type == "metric":
         metricmapdata = request.POST.get('metricdata')
         routearray_raw = request.POST.get('route')  # string like "[1,2,3]"
         route_ids = json.loads(routearray_raw) if routearray_raw else []
-        print("check check check", route_ids)
 
         metricMap = json.loads(metricmapdata)
 
-        # assume metricMap is GeoJSON: {"type": "FeatureCollection", "features": [...]}
+
         features = metricMap.get("features", [])
 
-        # Convert to GeoDataFrame
-        gdf = gpd.GeoDataFrame.from_features(features)
+        line_features = []
+        polygon_features = []
 
-        # Optional: ensure a CRS (e.g. EPSG:4326)
-        if gdf.crs is None:
-            gdf.set_crs(epsg=4326, inplace=True)
+        for f in features:
+            gtype = f["geometry"]["type"]
+            if gtype == "LineString":
+                line_features.append(f)
+            elif gtype in ("Polygon", "MultiPolygon"):
+                polygon_features.append(f)
 
-        # --- Separate Lines & Polygons ---
-        line_gdf = gdf[gdf.geometry.type == "LineString"].copy()
-        poly_gdf = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])].copy()
+        # Convert lines to GeoDataFrame
+        line_gdf = gpd.GeoDataFrame.from_features(line_features)
+
+
 
         # --- Snap and merge Lines ---
-        snapped_lines = snap_line_endpoints(line_gdf)
-        merged_lines_json, id_mapping = merge_simple_intersections(snapped_lines)
-
-        # --- Combine merged lines + untouched polygons ---
-        merged_lines_json = json.loads(merged_lines_json)
-        merged_lines_gdf = gpd.GeoDataFrame.from_features(merged_lines_json["features"])
-        routecorrected = validateRoute(merged_lines_gdf, route_ids, id_col="id", inplace=False)
-
-        combined_gdf = pd.concat([routecorrected, poly_gdf], ignore_index=True)
-        combined_gdf = gpd.GeoDataFrame(combined_gdf, crs=gdf.crs)
+        snapped_lines, snapped_ids = snap_line_endpoints(line_gdf)
+        print("what are snapped lines", snapped_lines)
+        grouped_snaps = find_snapped_groups(line_gdf, snapped_lines)
+        merged_lines_json, id_mapping,merged_audit = merge_simple_intersections(snapped_lines)
 
 
 
-        # Convert back to GeoJSON-like dict
-        response_geojson = json.loads(combined_gdf.to_json())
-        return HttpResponse(json.dumps(response_geojson), content_type="application/json")
+        snap_id_pairs = [sorted(list(g)) for g in grouped_snaps]
+
+        print("check for snapped", grouped_snaps)
+        audit = {
+            "snap": snap_id_pairs,
+            "merge": merged_audit
+        }
+
+
+        if action == 'preview':
+            # Return proposed edits and audit to UI — do NOT commit changes
+            return HttpResponse(json.dumps({
+                "audit": to_builtin_types(audit)
+            }), content_type="application/json")
+
+        if action == 'apply':
+            approved_snap_pairs = request.POST.get('snap')
+            approved_merge_pairs = request.POST.get('merge')
+            approved_snap_json = json.loads(approved_snap_pairs) if approved_snap_pairs else []
+            approved_merge_json = json.loads(approved_merge_pairs) if approved_merge_pairs else []
+
+            snapped_lines = apply_approved_snaps(line_gdf, approved_snap_json, id_col="id", inplace=False)
+
+            merge_groups = [m["merged_from"] for m in approved_merge_json]
+            merged_lines = apply_approved_merges(snapped_lines, merge_groups, id_col="id", inplace=False)
+            routecorrected = validateRoute(merged_lines, route_ids, id_col="id", inplace=False)
+
+            edited_lines_geojson = json.loads(routecorrected.to_json())
+            edited_line_features = edited_lines_geojson["features"]
+
+
+            # 3) combine back with polygons
+            final_geojson = {
+                "type": "FeatureCollection",
+                "features": edited_line_features + polygon_features
+            }
+
+            print (polygon_features, "the backend polygon is here")
+
+
+
+            return HttpResponse(json.dumps({
+                "modifiedStreets": final_geojson
+            }), content_type="application/json")
+
 
     if type == "sketch":
         sketchmapdata = request.POST.get('sketchdata')
         alignmentdata = request.POST.get('alignment')
         routearray_raw = request.POST.get('route')  # string like "[1,2,3]"
         route_ids = json.loads(routearray_raw) if routearray_raw else []
-        print("check check check sketch", route_ids)
+
 
         sketchMap = json.loads(sketchmapdata)
         alignment = json.loads(alignmentdata)
@@ -330,42 +566,73 @@ def validate(request):
         # assume metricMap is GeoJSON: {"type": "FeatureCollection", "features": [...]}
         features = sketchMap.get("features", [])
 
-        # Convert to GeoDataFrame
-        gdf = gpd.GeoDataFrame.from_features(features)
+        line_features = []
+        polygon_features = []
 
-        # Optional: ensure a CRS (e.g. EPSG:4326)
-        if gdf.crs is None:
-            gdf.set_crs(epsg=4326, inplace=True)
+        for f in features:
+            gtype = f["geometry"]["type"]
+            if gtype == "LineString":
+                line_features.append(f)
+            elif gtype in ("Polygon", "MultiPolygon"):
+                polygon_features.append(f)
 
-
-
-        # --- Separate Lines & Polygons ---
-        line_gdf = gdf[gdf.geometry.type == "LineString"].copy()
-        poly_gdf = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])].copy()
+        # Convert lines to GeoDataFrame
+        line_gdf = gpd.GeoDataFrame.from_features(line_features)
 
         # --- Snap and merge Lines ---
-        snapped_lines = snap_line_endpoints(line_gdf)
-        merged_lines_json, id_mapping = merge_simple_intersections(snapped_lines)
+        snapped_lines, snapped_ids = snap_line_endpoints(line_gdf)
+        print("what are snapped lines", snapped_lines)
+        grouped_snaps = find_snapped_groups(line_gdf, snapped_lines)
+        merged_lines_json, id_mapping, merged_audit = merge_simple_intersections(snapped_lines)
+        snap_id_pairs = [sorted(list(g)) for g in grouped_snaps]
 
-        # --- Combine merged lines + untouched polygons ---
+        print("check for snapped", grouped_snaps)
+        audit = {
+            "snap": snap_id_pairs,
+            "merge": merged_audit
+        }
 
-        merged_lines_json = json.loads(merged_lines_json)
-        merged_lines_gdf = gpd.GeoDataFrame.from_features(merged_lines_json["features"])
-        routecorrected = validateRoute(merged_lines_gdf, route_ids, id_col="id", inplace=False)
-        combined_gdf = pd.concat([routecorrected, poly_gdf], ignore_index=True)
-        combined_gdf = gpd.GeoDataFrame(combined_gdf, crs=gdf.crs)
-        # Convert back to GeoJSON-like dict
-        response_geojson = json.loads(combined_gdf.to_json())
+        if action == 'preview':
+            # Return proposed edits and audit to UI — do NOT commit changes
+            return HttpResponse(json.dumps({
+                "audit": to_builtin_types(audit)
+            }), content_type="application/json")
 
-        corrected_alignment = combine_by_basealign(alignment)
-        remapped_alignment = remap_alignment_ids(corrected_alignment, id_mapping)
+        if action == 'apply':
+            approved_snap_pairs = request.POST.get('snap')
+            approved_merge_pairs = request.POST.get('merge')
+            approved_snap_json = json.loads(approved_snap_pairs) if approved_snap_pairs else []
+            approved_merge_json = json.loads(approved_merge_pairs) if approved_merge_pairs else []
 
-        print("alignment (updated):", remapped_alignment)
+            snapped_lines = apply_approved_snaps(line_gdf, approved_snap_json, id_col="id", inplace=False)
 
-        return HttpResponse(json.dumps({
-            "updated_sketch": response_geojson,
-            "updated_alignment": remapped_alignment
-        }, default=lambda o: int(o) if hasattr(o, 'item') else str(o)), content_type="application/json")
+            merge_groups = [m["merged_from"] for m in approved_merge_json]
+            merged_lines = apply_approved_merges(snapped_lines, merge_groups, id_col="id", inplace=False)
+            routecorrected = validateRoute(merged_lines, route_ids, id_col="id", inplace=False)
+
+            edited_lines_geojson = json.loads(routecorrected.to_json())
+            edited_line_features = edited_lines_geojson["features"]
+
+            # 3) combine back with polygons
+            final_geojson = {
+                "type": "FeatureCollection",
+                "features": edited_line_features + polygon_features
+            }
+
+
+
+            corrected_alignment = combine_by_basealign(alignment)
+            remapped_alignment = remap_alignment_ids(corrected_alignment, id_mapping)
+            return HttpResponse(json.dumps({
+                "modifiedStreets": final_geojson,
+                "updated_alignment": remapped_alignment
+            }), content_type="application/json")
+
+
+
+
+
+
 
 
 

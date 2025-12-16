@@ -6,9 +6,9 @@ Created on Thu Jan 25 12:28:47 2018
 """
 
 import geojsonLoader, svgLoader
-from qualifier_database_writer import write_to_db
-from qualifier_interface import qualifier_interface
-from qualifier_collection import qualifier_functions
+from qualifier.qualifier_database_writer import write_to_db
+from qualifier.qualifier_interface import qualifier_interface
+from qualifier.qualifier_collection import qualifier_functions
 
 # this function computes the qualitative representation of the input data
 # and returns it. At the moment the qualifiers for each set of relations are 
@@ -45,9 +45,7 @@ elif data_format.strip().lower() == 'svg'.lower():
 if (not (data_properties == 0 or data == 0)):
     # get the qualitative representation for the whole map
     qualitative_representation = qualify(data, data_properties)
-    print 'map qualified... writing to database'
     # write the qualitative representation to the database
     write_to_db(qualitative_representation)
 
-print "exited successfully"
 

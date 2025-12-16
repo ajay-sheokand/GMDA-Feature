@@ -1,5 +1,3 @@
-
-
 var sketchMap;
 var sketchMaptitle;
 var drawnSketchItems;
@@ -76,8 +74,34 @@ function renderImageFile(file, location) {
         image.src = this.result;
 
         baseMap = new L.map('imagemap', {
-            crs: L.CRS.Simple
+            crs: L.CRS.Simple,
+            pmIgnore: false
         });
+
+        baseMap.pm.setGlobalOptions({
+              snappable: true,
+              snapDistance: 20,
+              snapSegment: true,
+              snapMiddle: true,
+              preventMarkerRemoval: false,
+
+              continueDrawing : true,
+              pathOptions:{
+                opacity:0.7,
+                dashArray: [5, 5],
+                weight: 5,
+                color: "#e8913a",
+                radius: 5},
+              templineStyle: {
+                color: "#e8913a",
+                dashArray: [5, 5],
+              },
+              hintlineStyle: {
+                color: "#e8913a",
+                dashArray: [5, 5],
+              }
+});
+
 
  var bounds = [[0, 0], [600, 850]];
 
@@ -85,11 +109,14 @@ function renderImageFile(file, location) {
         BMLoaded.addTo(baseMap);
         baseMap.fitBounds(bounds);
         enableDefaultArrows(baseMap);
+        addMouseCoordinateDisplay(baseMap, 'Base');
 
         drawnItems = new L.geoJson();
         layerGroupBasemap.addTo(baseMap);
         layerGroupBasemapGen.addTo(baseMap);
         drawnItems.addTo(layerGroupBasemap);
+
+
 
 
         var layerControl = new L.Control.Layers(null, {
@@ -416,26 +443,34 @@ states: [{
 var drawBM = document.getElementById('drawBM');
 $('#drawBM').click(function(){
 
-
-drawnItems.setStyle({pmIgnore: false});
-drawnItems.options.pmIgnore = false; // If the layer is a LayerGroup / FeatureGroup / GeoJSON this line is needed too
-L.PM.reInitLayer(drawnItems);
-
 baseMap.pm.addControls({
-position: 'topleft',
-drawCircle: false,
-drawMarker: false,
-drawRectangle:false,
-drawText: false,
-drawCircleMarker:false,
-dragMode:false,
-rotateMode:false,
-cutPolygon:false
+    position: 'topleft',
+    drawCircle: false,
+    drawMarker: false,
+    drawRectangle:false,
+    drawText: false,
+    drawCircleMarker:false,
+    dragMode:false,
+    rotateMode:false,
+    cutPolygon:false,
+    snappingOption:true
 });
+
+  baseMap.on('pm:snap', function(e) {
+    console.log("isanythinghappeninghrre");
+    console.log('SNAP on', e.snapLatLng, 'dist(px)=', e.distance);
+  });
 
 baseMap.on('pm:create', function (event) {
     bid=bid+1;
     var layer = event.layer;
+
+
+    layer.options.pmIgnore = false; // If the layer is a LayerGroup / FeatureGroup / GeoJSON this line is needed too
+    layer.options.snapIgnore= false;
+    L.PM.reInitLayer(layer);
+
+
     var feature = layer.feature = layer.feature || {}; // Initialize feature
     feature.type = feature.type || "Feature"; // Initialize feature.type
     var props = feature.properties = feature.properties || {}; // Initialize feature.properties
@@ -450,7 +485,10 @@ baseMap.on('pm:create', function (event) {
     props.selected=false;
     props.aligned=false;
     props.otype = event.shape;
+    console.log("the polygon is created here", layer)
+
     drawnItems.addLayer(layer);
+      // 🔹 commit snapping to ALL existing base geometries (lines + polygons)
 });
 
 baseMap.on('pm:remove', function (e) {
@@ -459,24 +497,7 @@ baseMap.on('pm:remove', function (e) {
 
 
 
-baseMap.pm.setGlobalOptions({
-  continueDrawing : true,
-  pathOptions:{
-    opacity:0.7,
-    dashArray: [5, 5],
-    weight: 5,
-    color: "#e8913a",
-    radius: 5},
-  templineStyle: {
-    color: "#e8913a",
-    dashArray: [5, 5],
-  },
-  hintlineStyle: {
-    color: "#e8913a",
-    dashArray: [5, 5],
-  }
 
-});
 
 const actions = [];
 baseMap.pm.Toolbar.changeActionsOfControl('Polygon', actions);
@@ -516,47 +537,228 @@ var routeIDArray=[];
      console.log(routeIDArray,"check check");
 
  baseUrl = getServiceUrl('validation');
+ console.log("What is being sent?", drawnItems, drawnItems.toGeoJSON(20))
 $.ajax({
             headers: { "X-CSRFToken": $.cookie("csrftoken") },
             url: `${baseUrl}/validation/validate/`,
             type: 'POST',
             data: {
                 type: "metric",
-                metricdata: JSON.stringify(drawnItems.toGeoJSON()),
-                route: JSON.stringify(routeIDArray)
+                metricdata: JSON.stringify(drawnItems.toGeoJSON(20)),
+                route: JSON.stringify(routeIDArray),
+                action: 'preview'
             },
             success: function(response) {
+                showpreviewModal(response.audit, "metric");
                 console.log("success",response);
-                if (drawnItems != null) {
-                    layerGroupBasemap.removeLayer(drawnItems);
-                 }
-                drawnItems = L.geoJSON(response);
-                drawnItems.addTo(layerGroupBasemap);
-                styleLayers();
-                drawnItems.eachLayer(function(blayer){
-                    blayer.off('click');
-                });
-
-                if (addedClickBase == false){
-                    addClickBase();
-                }
-                $( "#marked" ).prop( "checked", true );
-                $( "#marked" ).prop( "disabled", false );
-                baseMap.pm.disableDraw();
-                baseMap.pm.removeControls();
-                drawnItems.setStyle({opacity:1});
-
-
-                baseMap.removeControl(routeButton);
-
-                allDrawnSketchItems[baseMaptitle] = drawnItems;
             },
             error: function(jqXHR, textStatus, errorThrown) {
-                console.error('Error in completeness analysis:', errorThrown);
+                console.error('Error in metric map validation:', errorThrown);
             }
         });
 
 });
+
+let currentAudit = null; // store latest audit globally
+function showpreviewModal(audit, type){
+console.log(audit, "cheeeek");
+ currentAudit = audit;  // save for later when submitting
+let mergetext = "";
+let snaptext = "";
+
+audit.snap.forEach((s,i) => {
+    snaptext += `
+            <div class="modal_val_row">
+                [${s.join(", ")}]
+                <input type="checkbox" class="snapCheck" data-group="${i}">
+            </div>
+        `;
+});
+
+audit.merge.forEach((m,i) => {
+    mergetext += `
+            <div class="modal_val_row">
+                [${m.merged_from.join(", ")}]
+                <input type="checkbox" class="mergeCheck" data-group="${i}">
+            </div>
+        `;
+});
+    var modal = document.getElementById("myModal");
+     modal.style.display = "block";
+    var merge = document.getElementById("mergeList");
+    merge.innerHTML = mergetext;
+    var snap = document.getElementById("snapList");
+    snap.innerHTML = snaptext;
+    makeModalMovable("myModal");
+
+    const closeBtn = document.getElementById("closeModalBtn");
+
+// click close button
+closeBtn.onclick = function () {
+    modal.style.display = "none";
+};
+
+
+//submit button
+document.getElementById("modalSubmitBtn").onclick = function () {
+
+    const selectedSnapGroups = [];
+    const selectedMergeGroups = [];
+
+    // selected snap rows
+    document.querySelectorAll(".snapCheck:checked").forEach(chk => {
+        const idx = parseInt(chk.dataset.group, 10);
+        selectedSnapGroups.push(currentAudit.snap[idx]);  // e.g. [0,1]
+    });
+
+    // selected merge rows
+    document.querySelectorAll(".mergeCheck:checked").forEach(chk => {
+        const idx = parseInt(chk.dataset.group, 10);
+        selectedMergeGroups.push(currentAudit.merge[idx]); // whole object {new_id, merged_from}
+    });
+
+    console.log("Selected snap groups:", selectedSnapGroups);
+    console.log("Selected merge groups:", selectedMergeGroups);
+
+    callApplyValidate (selectedSnapGroups, selectedMergeGroups,type);
+};
+}
+
+
+function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type){
+
+ if (type == "metric"){
+    $.ajax({
+                headers: { "X-CSRFToken": $.cookie("csrftoken") },
+                url: `${baseUrl}/validation/validate/`,
+                type: 'POST',
+                data: {
+                    type: "metric",
+                    metricdata: JSON.stringify(drawnItems.toGeoJSON(20)),
+                    action: 'apply',
+                    merge: JSON.stringify(selectedMergeGroups),
+                    snap: JSON.stringify(selectedSnapGroups)
+                },
+                success: function(response) {
+                    console.log("success",response);
+                    if (drawnItems != null) {
+                        layerGroupBasemap.removeLayer(drawnItems);
+                     }
+                    drawnItems = L.geoJSON(response.modifiedStreets);
+                    drawnItems.addTo(layerGroupBasemap);
+                    styleLayers();
+                    drawnItems.eachLayer(function(blayer){
+                        blayer.off('click');
+                    });
+
+                    if (addedClickBase == false){
+                        addClickBase();
+                    }
+                    $( "#marked" ).prop( "checked", true );
+                    $( "#marked" ).prop( "disabled", false );
+                    baseMap.pm.disableDraw();
+                    baseMap.pm.removeControls();
+                    drawnItems.setStyle({opacity:1});
+
+
+                    baseMap.removeControl(routeButton);
+
+                    allDrawnSketchItems[baseMaptitle] = drawnItems;
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error('Error in completeness analysis:', errorThrown);
+                }
+            });
+
+}
+
+if (type == "sketch"){
+    $.ajax({
+                headers: { "X-CSRFToken": $.cookie("csrftoken") },
+                url: `${baseUrl}/validation/validate/`,
+                type: 'POST',
+                data: {
+                    type: "sketch",
+                    sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON(20)),
+                    action: 'apply',
+                    merge: JSON.stringify(selectedMergeGroups),
+                    snap: JSON.stringify(selectedSnapGroups),
+                    alignment: JSON.stringify(alignmentArraySingleMap)
+                },
+                success: function(response) {
+                    console.log("success",response);
+                    if (drawnSketchItems != null) {
+                    sketchMap.removeLayer(drawnSketchItems);
+                 }
+                drawnSketchItems = L.geoJSON(response.modifiedStreets);
+                drawnSketchItems.addTo(sketchMap);
+                styleLayers();
+                hoverfunction();
+
+                BooleanEditSketchMode = false;
+                alignmentArraySingleMap = response.updated_alignment;
+                saveSketchMap();
+
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error('Error in sketch map validation apply:', errorThrown);
+                }
+            });
+
+
+
+}
+
+
+}
+
+
+
+
+
+
+
+
+function makeModalMovable(modalId) {
+    const modal = document.getElementById(modalId);
+
+    let mouseX = 0, mouseY = 0;
+    let modalX = 0, modalY = 0;
+
+    modal.onmousedown = dragMouseDown;
+
+    function dragMouseDown(e) {
+        e.preventDefault();
+
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+
+        document.onmouseup = stopDragging;
+        document.onmousemove = drag;
+    }
+
+    function drag(e) {
+        e.preventDefault();
+
+        const dx = e.clientX - mouseX;
+        const dy = e.clientY - mouseY;
+
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+
+        modal.style.top = (modal.offsetTop + dy) + "px";
+        modal.style.left = (modal.offsetLeft + dx) + "px";
+    }
+
+    function stopDragging() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+    }
+}
+
+
+
+
 
 
 
@@ -623,7 +825,7 @@ drawnItems.eachLayer(function(blayer){
                 console.log("inside Alignment Array=0");
                 checkAlignnum = 1;
                 alignmentArraySingleMap={};
-         var idArray = Object.values(drawnSketchItems.toGeoJSON().features).map((item) => item.properties.id);
+         var idArray = Object.values(drawnSketchItems.toGeoJSON(20).features).map((item) => item.properties.id);
          id = Math.max.apply(Math, idArray);
                 drawnSketchItems.eachLayer(function(slayer){
                     slayer.feature.properties.selected = false;
@@ -652,7 +854,7 @@ drawnItems.eachLayer(function(blayer){
             console.log("in AlignmentArray",sketchMaptitle);
             checkAlignnum = AlignmentArray[sketchMaptitle].checkAlignnum;
             alignmentArraySingleMap=AlignmentArray[sketchMaptitle];
-         var idArray = Object.values(drawnSketchItems.toGeoJSON().features).map((item) => item.properties.id);
+         var idArray = Object.values(drawnSketchItems.toGeoJSON(20).features).map((item) => item.properties.id);
          id = Math.max.apply(Math, idArray);
              drawnSketchItems.eachLayer(function(slayer){
                   delete slayer.feature.properties.group;
@@ -746,9 +948,18 @@ drawnItems.eachLayer(function(blayer){
             drawText:false,
             dragMode:false,
             rotateMode:false,
-            cutPolygon:false
+            cutPolygon:false,
+            snappingOption:true
     });
+
     sketchMap.pm.setGlobalOptions({
+
+              snappable: true,
+              snapDistance: 20,
+              snapSegment: true,
+              snapMiddle: true,
+
+            preventMarkerRemoval: false,
             continueDrawing: false,
             pathOptions:{
                 opacity:0.7,
@@ -781,6 +992,10 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
         sketchMap.on('pm:create', function (event) {
                        id=id+1;
             var layer = event.layer;
+
+            layer.options.pmIgnore = false; // If the layer is a LayerGroup / FeatureGroup / GeoJSON this line is needed too
+            layer.options.snapIgnore= false;
+            L.PM.reInitLayer(layer);
 
             var feature = layer.feature = layer.feature || {}; // Initialize feature
             feature.type = feature.type || "Feature"; // Initialize feature.type
@@ -1081,12 +1296,15 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
             type: 'POST',
             data: {
                 type: "sketch",
-                sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
+                sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON(20)),
                 alignment: JSON.stringify(alignmentArraySingleMap),
-                route: JSON.stringify(sketchIDArray)
+                route: JSON.stringify(sketchIDArray),
+                action: 'preview'
             },
             success: function(response) {
-                console.log("successsketch",response.updated_sketch);
+                console.log("successsketch",response.audit);
+                showpreviewModal(response.audit, "sketch");
+                /*
                  if (drawnSketchItems != null) {
                     sketchMap.removeLayer(drawnSketchItems);
                  }
@@ -1097,11 +1315,11 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
 
                 BooleanEditSketchMode = false;
                 alignmentArraySingleMap = response.updated_alignment;
-                saveSketchMap();
+                saveSketchMap();*/
 
             },
             error: function(jqXHR, textStatus, errorThrown) {
-                console.error('Error in completeness analysis:', errorThrown);
+                console.error('Error in sketchmap validation:', errorThrown);
             }
         });
     });
@@ -1234,66 +1452,16 @@ if (BooleanMissingFeature){
 }
 
 
-
-/*function predictGenSingleLine(sketchtype,basetype){
-var datatobesent = new L.geoJson();
- drawnItems.eachLayer(function(blayer){
-    if((Object.keys(basetype).map(Number)).includes(blayer.feature.properties.id)){
-       datatobesent.addData(blayer.toGeoJSON());
-    }
-});
-
-var returnValue;
-
-var url = "http://localhost:8080/fmedatastreaming/Generalization/junctiondetect.fmw?data=" + encodeURIComponent(JSON.stringify(JSON.stringify(datatobesent.toGeoJSON())));
-var newurl = "http://desktop-f25rpfv:8080/fmerest/v3/repositories/GeneralizationPredict/networkcalculator.fmw/parameters?fmetoken=47e241ca547e14ab6ea961aef083f8a4cbe6dfe3"
-
-
-var httpRequest = new XMLHttpRequest();
-httpRequest.open("GET", url, false);
-httpRequest.setRequestHeader("Authorization","fmetoken token=052c05a3a85fea84fb131d60281131e9ac65787b")
-httpRequest.setRequestHeader("Access-Control-Allow-Origin", "http://localhost:8080");
-httpRequest.setRequestHeader("Accept","text/html");
-httpRequest.setRequestHeader("content-Type","application/x-www-form-urlencoded");
-            httpRequest.onreadystatechange = function()
-            {
-                if (httpRequest.readyState == 4 && httpRequest.status == 200)
-                {
-                 var responseArray = (httpRequest.response).split(/\r?\n/);
-                 responseArray.pop();
-                 var nodeArray = [];
-                  $.each(responseArray, function(i, item) {
-                        nodeArray.push(Object.values(JSON.parse(responseArray[i])));
-                  });
-                 nodeArray = _.flatten(nodeArray,true);
-                 if (new Set(nodeArray).size == nodeArray.length){
-                    returnValue = "Abstraction to show existence";
-                 }
-                 else{
-                    var nodeCount = _.countBy(nodeArray);
-                    if (!(Object.values(nodeCount)).includes(3)){
-                    returnValue =  "OmissionMerge";
-                    }
-                 }
-                }
-            }
-            // send a request so we get a reply
-            httpRequest.send();
-
- return returnValue;
-}*/
-
-
 function predictGenSingleLine(sketchtype, basetype) {
     var datatobesent = new L.geoJson();
     drawnItems.eachLayer(function(blayer) {
       if ((Object.keys(basetype).map(Number)).includes(blayer.feature.properties.id)) {
-        datatobesent.addData(blayer.toGeoJSON());
+        datatobesent.addData(blayer.toGeoJSON(20));
       }
     });
     var coordinates = [];
-    for (var i = 0; i < datatobesent.toGeoJSON().features.length; i++) {
-    var feature = datatobesent.toGeoJSON().features[i];
+    for (var i = 0; i < datatobesent.toGeoJSON(20).features.length; i++) {
+    var feature = datatobesent.toGeoJSON(20).features[i];
     if (feature.geometry.type === "LineString") {
         coordinates.push(feature.geometry.coordinates);
     }
@@ -1371,3 +1539,40 @@ document.querySelectorAll('.menu-options li').forEach(item => {
         });
     });
 });
+
+
+
+function addMouseCoordinateDisplay(map, label) {
+    // label is just to distinguish multiple maps, e.g. "Base" / "Sketch"
+    var coordControl = L.control({ position: 'topleft' });
+
+    coordControl.onAdd = function (map) {
+        var div = L.DomUtil.create('div', 'leaflet-coord-display');
+        div.id = 'coord-display-' + label;
+        div.innerHTML = label + ': x: -, y: -';
+        return div;
+    };
+
+    coordControl.addTo(map);
+
+    map.on('mousemove', function(e) {
+        // For CRS.Simple these are basically "image coordinates"
+        var x = e.latlng.lat.toFixed(10);
+        var y = e.latlng.lng.toFixed(10);
+
+        var el = document.getElementById('coord-display-' + label);
+        if (el) {
+            el.innerHTML = label + ': x: ' + x + ', y: ' + y;
+        }
+    });
+
+    map.on('mouseout', function() {
+        var el = document.getElementById('coord-display-' + label);
+        if (el) {
+            el.innerHTML = label + ': x: -, y: -';
+        }
+    });
+}
+
+
+

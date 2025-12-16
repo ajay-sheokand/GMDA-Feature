@@ -97,7 +97,7 @@ function downloadProject(){
  zip.file("alignment.json",alignment);
 
  for (var key in allDrawnSketchItems) {
-    zip.file(key + ".geojson", JSON.stringify(allDrawnSketchItems[key].toGeoJSON()));
+    zip.file(key + ".geojson", JSON.stringify(allDrawnSketchItems[key].toGeoJSON(20)));
 }
      zip.generateAsync({type:"blob"})
         .then(function(content) {
@@ -108,7 +108,7 @@ function downloadProject(){
 
 
 async function prepareDataForQualifier(index,GenBaseMap){
-MMGeoJsonData = GenBaseMap.toGeoJSON();
+MMGeoJsonData = GenBaseMap.toGeoJSON(20);
     var count = 0;
     MMGeoJsonDataFiltered = {};
     SMGeoJsonDataFiltered = {};
@@ -132,7 +132,7 @@ MMGeoJsonData = GenBaseMap.toGeoJSON();
     }
 
 
-SMGeoJsonData = ProcSketchMap.toGeoJSON();
+SMGeoJsonData = ProcSketchMap.toGeoJSON(20);
     var count = 0;
     var streetGroupIdÁrray = [];
     var buildingGroupIdArray = [];
@@ -374,7 +374,7 @@ if (BooleanEditSketchMode){
 
 // Construct the base URL dynamically
 baseUrl = getServiceUrl('generalizations');
-console.log("baseUrl: ",baseUrl);
+console.log("what is being sent to generalize: ",drawnItems, drawnItems.toGeoJSON(20));
 
  $('#loading-spinner').show();
 
@@ -386,8 +386,8 @@ try {
       type: 'POST',
       data: {
         csrfmiddlewaretoken: $.cookie("csrftoken"),
-        basedata: JSON.stringify(drawnItems.toGeoJSON()),
-        sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
+        basedata: JSON.stringify(drawnItems.toGeoJSON(20)),
+        sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON(20)),
         aligndata: JSON.stringify(AlignmentArray[currentsketchMap]),
         sketchmapName: JSON.stringify(currentsketchMap)
       }
@@ -924,7 +924,7 @@ if (Object.keys(qualresponseArray)!=0){
                 zip.file("QASummary.csv", QASummaryCSV.join("\n"));
 }
         for (var i in Object.keys(allGenBaseMap)){
-        zip.folder("GeneralizedBaseMap").file(Object.keys(allGenBaseMap)[i]+".geojson", JSON.stringify(allGenBaseMap[Object.keys(allGenBaseMap)[i]].toGeoJSON()));
+        zip.folder("GeneralizedBaseMap").file(Object.keys(allGenBaseMap)[i]+".geojson", JSON.stringify(allGenBaseMap[Object.keys(allGenBaseMap)[i]].toGeoJSON(20)));
         }
         zip.generateAsync({type:"blob"})
         .then(function(content) {

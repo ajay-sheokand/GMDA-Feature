@@ -2,7 +2,7 @@
     "1": {
         "BaseAlign": {
             "0": [
-                1
+                0
             ]
         },
         "SketchAlign": {
@@ -16,7 +16,7 @@
     "2": {
         "BaseAlign": {
             "0": [
-                0
+                1
             ]
         },
         "SketchAlign": {
@@ -55,5 +55,19 @@
         "genType": "No generalization",
         "degreeOfGeneralization": 0
     },
-    "checkAlignnum": 5
+    "5": {
+        "BaseAlign": {
+            "0": [
+                4
+            ]
+        },
+        "SketchAlign": {
+            "0": [
+                "S4"
+            ]
+        },
+        "genType": "No generalization",
+        "degreeOfGeneralization": 0
+    },
+    "checkAlignnum": 6
 }

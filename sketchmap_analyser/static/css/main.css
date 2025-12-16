@@ -394,3 +394,50 @@ input[type="file"] {
   clear: both;
 }
 
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 20000000; /* Sit on top */
+  left: 0;
+  top: 0;
+  width: auto;
+  height: auto;
+  overflow: auto; /* Enable scroll if needed */
+  background-color: #ffffff;
+  border: 1px solid #888;
+}
+
+/* Modal Content/Box */
+.modal-content {
+  background-color: #fefefe;
+  margin: 15% auto; /* 15% from the top and centered */
+  padding: 20px;
+  width: auto; /* Could be more or less, depending on screen size */
+}
+
+.modal-close {
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    border: none;
+    background: none;
+    color: #333;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.modal-close:hover {
+    color: red;
+}
+
+
+
+.leaflet-coord-display {
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 3px;
+  font-family: monospace;
+}

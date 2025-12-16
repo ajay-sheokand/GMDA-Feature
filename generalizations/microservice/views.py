@@ -1,36 +1,19 @@
-import geopandas
-from django.shortcuts import render
-from django.template import loader
+
 from django.http.response import HttpResponse
-from django.views.decorators.http import require_POST
-import requests
 import geopandas as gpd
-from fontTools.unicodedata import block
 from shapely.constructive import concave_hull
-from shapely.geometry import Polygon
 import numpy as np
-from copy import deepcopy
-import pandas as pd
 import json
 import os
 import math
-import bcrypt
 from shapely import geometry, ops, Geometry, snap, unary_union, get_coordinates
-from shapely.strtree import STRtree
-from shapely.geometry import Point, Polygon, shape
-from shapely import LineString, MultiPoint, Polygon
 from shapely.geometry import Polygon, LineString, MultiLineString
-from matplotlib import pyplot as plt
 import shapely.wkt
-from math import sqrt
-import geojson
 from geojson import Feature, Point, FeatureCollection, Polygon, dump
-from django.http import JsonResponse
-from collections import defaultdict
 from django.views.decorators.csrf import ensure_csrf_cookie
 from shapely.ops import unary_union,polygonize
-import glob
-from shapely.plotting import plot_line
+from copy import deepcopy
+
 
 
 
@@ -92,6 +75,8 @@ def spatial_transformation():
 
     data_ip = json.load(base)
     data_ips = json.load(sketch)
+
+    print("rawdata", data_ip)
 
 
 
@@ -205,7 +190,7 @@ def spatial_transformation():
         """
         filtered = [geo for geo in data_ip['features'] if geo['properties']['id'] in curved_ids]
         if filtered:
-            filteredGDF = gpd.GeoDataFrame.from_features(filtered, crs='epsg:4326')
+            filteredGDF = gpd.GeoDataFrame.from_features(filtered)
             #print (filteredGDF.geometry)
 
             # Perform Polygonization
@@ -690,13 +675,28 @@ def spatial_transformation():
         wkt_string = line.wkt
         features.append(Feature(geometry=shapely.wkt.loads(wkt_string), properties={"genType": "No generalization", "BaseAlign": ids,"SketchAlign":sids}))
 
-    for x, ids, sids in zip(ng_res_p, ng_ids_p, s_ng_ids_p):
-        if len(x) == 0: # Skip empty inputs
-            continue
-        polygon = shapely.geometry.Polygon(x[0])
-        wkt_string = polygon.wkt
-        features.append(Feature(geometry=shapely.wkt.loads(wkt_string), properties={"genType": "No generalization", "BaseAlign": ids,"SketchAlign":sids}))
+    for ids, sids in zip(ng_ids_p, s_ng_ids_p):
+        # fetch the original feature EXACTLY as received
+        original_feature = next(
+            f for f in data_ip["features"]
+            if f["properties"]["id"] == ids
+        )
 
+        print("check how is original feature", original_feature)
+
+        # copy geometry without modification
+        features.append({
+            "type": "Feature",
+            "geometry": deepcopy(original_feature["geometry"]),
+            "properties": {
+                **original_feature["properties"],
+                "genType": "No generalization",
+                "BaseAlign": ids,
+                "SketchAlign": sids
+            }
+        })
+
+        print("check polygon here", features)
 
     # Roundabout Collapse ...........................................................
     sketch = open(Inputsketchpath)
@@ -1179,9 +1179,6 @@ def spatial_transformation():
             # Create a GeoDataFrame with the input feature
             gdf = gpd.GeoDataFrame.from_features([feature])
 
-            # Set the coordinate reference system (CRS) to a standard one, e.g., EPSG:4326
-            gdf.crs = "EPSG:4326"
-
             # Create a buffered polygon around the point (e.g., with a radius of 1 unit)
             buffered_radius = 1.0
             buffered_polygon = gdf.buffer(buffered_radius)
@@ -1278,7 +1275,7 @@ def spatial_transformation():
     def joinSegmentsJunctionMerge(sketch_ids):
         basefeaturesForJM = []
         missing = [geo for geo in data_ip['features'] if geo['properties']['id'] in m_ids]
-        missinggdf = gpd.GeoDataFrame.from_features(missing, crs='epsg:4326')
+        missinggdf = gpd.GeoDataFrame.from_features(missing)
         for feature in feature_collection['features']:
             if isinstance(feature["properties"]["SketchAlign"],(list,tuple,np.ndarray)):
                 check = bool(set(feature["properties"]["SketchAlign"]) & set(sketch_ids))
@@ -1287,7 +1284,7 @@ def spatial_transformation():
             if bool(check):
                 basefeaturesForJM.append(feature)
         if basefeaturesForJM:
-            ToBeMergedSegmentsGDF = gpd.GeoDataFrame.from_features(basefeaturesForJM, crs = 'epsg:4326')
+            ToBeMergedSegmentsGDF = gpd.GeoDataFrame.from_features(basefeaturesForJM)
             overlay = gpd.overlay(missinggdf, ToBeMergedSegmentsGDF, how='intersection', keep_geom_type=False)
             id_counts = overlay['id_1'].value_counts()
             global missingstreet
@@ -1297,7 +1294,7 @@ def spatial_transformation():
                 missingstreetsGeom = [geo for geo in data_ip['features'] if geo['properties']['id'] in missingstreet]
                 centroidMissingstreetsGeom = geometry.LineString(missingstreetsGeom[0]['geometry']['coordinates']).centroid
                 bufferCentroid = centroidMissingstreetsGeom.buffer(25)
-                bufferCentroidgdf = gpd.GeoDataFrame(index=[0], crs='epsg:4326', geometry=[bufferCentroid])
+                bufferCentroidgdf = gpd.GeoDataFrame(index=[0], geometry=[bufferCentroid])
                 clip = gpd.overlay(ToBeMergedSegmentsGDF, bufferCentroidgdf, how='difference', keep_geom_type=False)
                 # Plot all LineStrings on the same graph
                 #fig, ax = plt.subplots(figsize=(6, 6))
@@ -1356,9 +1353,6 @@ def spatial_transformation():
         if type == 'Point':
             # Create a GeoDataFrame with the input feature
             gdf = gpd.GeoDataFrame.from_features([feature])
-
-            # Set the coordinate reference system (CRS) to a standard one, e.g., EPSG:4326
-            gdf.crs = "EPSG:4326"
 
             # Create a buffered polygon around the point (e.g., with a radius of 1 unit)
             buffered_radius = 1.0
@@ -1489,11 +1483,19 @@ def spatial_transformation():
 
 
     for x, prop in zip(mis_res_p, mis_ids_p_prop):
-        polygon = shapely.geometry.Polygon(x)
-        wkt_string = polygon.wkt
-        features.append(Feature(geometry=shapely.wkt.loads(wkt_string),
-                                properties= prop))
+        original_feature = next(
+            f for f in data_ip["features"]
+            if f["properties"]["id"] == prop['id']
+        )
 
+        print("check how is original feature", original_feature)
+
+        # copy geometry without modification
+        features.append({
+            "type": "Feature",
+            "geometry": deepcopy(original_feature["geometry"]),
+            "properties": prop
+        })
 
 
     # Append the features from feature_collection1 to the combined feature collection
