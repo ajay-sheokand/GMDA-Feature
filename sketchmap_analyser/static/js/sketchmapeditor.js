@@ -356,7 +356,7 @@ states: [{
                 btn.state('label-invisible');    // change state on click!
 
                 if (allGenBaseMap[sketchMaptitle] != null){
-                       genbasemap.eachLayer(function(glayer){
+                      allGenBaseMap[sketchMaptitle].eachLayer(function(glayer){
                             glayer.bindTooltip(String(glayer.feature.properties.id), {permanent:true});
                        });
                 }
@@ -371,7 +371,7 @@ states: [{
                     blayer.unbindTooltip();
                 })
                 if (allGenBaseMap[sketchMaptitle] != null){
-                       genbasemap.eachLayer(function(glayer){
+                       allGenBaseMap[sketchMaptitle].eachLayer(function(glayer){
                         glayer.unbindTooltip();
                        });
                 }

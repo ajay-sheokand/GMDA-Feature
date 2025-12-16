@@ -35,9 +35,9 @@ def polygonal_topology(p1, p2):
         return "ntpp"
     elif (NTPP_inv_pattern.matches(im_pattern)):
         return "ntppi"
-    elif p2.within(p1.buffer(0.00001)) and p2.boundary.intersects(p1.boundary):
-        return "tpp"
     elif p1.within(p2.buffer(0.00001)) and p1.boundary.intersects(p2.boundary):
+        return "tpp"
+    elif p2.within(p1.buffer(0.00001)) and p2.boundary.intersects(p1.boundary):
         return "tppi"
     elif (EQ_pattern.matches(im_pattern)):
         return "eq"

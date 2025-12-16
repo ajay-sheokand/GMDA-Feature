@@ -41,33 +41,5 @@
         "genType": "No generalization",
         "degreeOfGeneralization": 0
     },
-    "4": {
-        "BaseAlign": {
-            "0": [
-                3
-            ]
-        },
-        "SketchAlign": {
-            "0": [
-                "S3"
-            ]
-        },
-        "genType": "No generalization",
-        "degreeOfGeneralization": 0
-    },
-    "5": {
-        "BaseAlign": {
-            "0": [
-                4
-            ]
-        },
-        "SketchAlign": {
-            "0": [
-                "S4"
-            ]
-        },
-        "genType": "No generalization",
-        "degreeOfGeneralization": 0
-    },
-    "checkAlignnum": 6
+    "checkAlignnum": 4
 }
