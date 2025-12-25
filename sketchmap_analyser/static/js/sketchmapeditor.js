@@ -1171,6 +1171,9 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
                         case "many-many":
                             return "Abstraction to show existence";
                             break;
+                        case "two-one":
+                            return "Abstraction to show existence - street stub";
+                            break;
                     }
                     break;
                 case "Polygon":
@@ -1212,6 +1215,9 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
         }
         if(Object.keys(sketchtype).length > 1 && Object.keys(basetype).length>1){
             return "many-many";
+        }
+        if(Object.keys(sketchtype).length == 2 && Object.keys(basetype).length == 1){
+            return "two-one";
         }
     }
 

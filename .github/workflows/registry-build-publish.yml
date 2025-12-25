@@ -27,6 +27,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build and Push validation
+        uses: docker/build-push-action@v5
+        with:
+          context: ./validation
+          file: ./validation/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ env.owner_lc }}/validation:latest
+
       - name: Build and Push generalizations
         uses: docker/build-push-action@v5
         with:

@@ -3,5 +3,5 @@ from . import views
 
 app_name = 'microservice'
 urlpatterns = [
-    path('validate/',views.validate, name='validate'),
+    path('validate/',views.validate)
 ]

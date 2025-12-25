@@ -16,21 +16,7 @@
     "2": {
         "BaseAlign": {
             "0": [
-                1
-            ]
-        },
-        "SketchAlign": {
-            "0": [
-                "S1"
-            ]
-        },
-        "genType": "No generalization",
-        "degreeOfGeneralization": 0
-    },
-    "3": {
-        "BaseAlign": {
-            "0": [
-                2
+                3
             ]
         },
         "SketchAlign": {
@@ -41,5 +27,48 @@
         "genType": "No generalization",
         "degreeOfGeneralization": 0
     },
-    "checkAlignnum": 4
+    "3": {
+        "BaseAlign": {
+            "0": [
+                1
+            ]
+        },
+        "SketchAlign": {
+            "0": [
+                "S5"
+            ]
+        },
+        "genType": "No generalization",
+        "degreeOfGeneralization": 0
+    },
+    "4": {
+        "BaseAlign": {
+            "0": [
+                2
+            ]
+        },
+        "SketchAlign": {
+            "0": [
+                "S3",
+                "S4"
+            ]
+        },
+        "genType": "Abstraction to show existence - street stub",
+        "degreeOfGeneralization": -1
+    },
+    "5": {
+        "BaseAlign": {
+            "0": [
+                4
+            ]
+        },
+        "SketchAlign": {
+            "0": [
+                "S6"
+            ]
+        },
+        "genType": "No generalization",
+        "degreeOfGeneralization": 0
+    },
+    "checkAlignnum": 7
 }

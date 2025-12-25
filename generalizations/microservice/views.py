@@ -96,6 +96,8 @@ def spatial_transformation():
     s_a2e_ids =[]
     corresponding_sketch_ids = []
     corresponding_base_ids = []
+    a2e_ss_ids = []
+    s_a2e_ss_ids = []
 
     for k in data:
         if (k != "checkAlignnum"):
@@ -129,6 +131,12 @@ def spatial_transformation():
                     a2e_ids.append(a2e_id)
                     a2e_id1 = data[k]['SketchAlign']['0']
                     s_a2e_ids.append(a2e_id1)
+
+                if data[k][key]== "Abstraction to show existence - street stub":
+                    a2e_ss_id = data[k]['BaseAlign']['0']
+                    a2e_ss_ids.append(a2e_ss_id)
+                    a2e_ss_id1 = data[k]['SketchAlign']['0']
+                    s_a2e_ss_ids.append(a2e_ss_id1)
 
 
 
@@ -473,6 +481,25 @@ def spatial_transformation():
            a2e_p_res.append(poly_group)
            a2e_ids_p.append(filtered_id)
 
+    a2e_ssl_res =[]
+    a2e_ss_ids_l=[]
+
+
+    for x in a2e_ss_id:
+       line_group = []
+       filtered_geom = [geo['geometry']['coordinates'] for geo in data_ip['features'] if geo['properties']['id'] == x]
+       filtered_geomtype = [geo['geometry']['type'] for geo in data_ip['features'] if geo['properties']['id'] == x]
+       filtered_id = [geo['properties']['id'] for geo in data_ip['features'] if geo['properties']['id'] == x]
+       if 'LineString' in filtered_geomtype:
+           for i in filtered_geom:
+               each_line = geometry.LineString(i)
+               line_group.append(each_line)
+           a2e_ssl_res.append(line_group)
+           a2e_ss_ids_l.append(filtered_id)
+           #print("line",a2e_ids_l)
+
+
+
 
 
     #for group in a2e_ids:
@@ -653,13 +680,27 @@ def spatial_transformation():
                 gen_type = "Abstraction to show existence streets"
                 features.append(Feature(geometry=g1_a2e, properties={"genType": gen_type, "BaseAlign":  ids, "SketchAlign":sids}))
 
+
+    if a2e_ssl_res :
+        for x, ids, sids in zip(a2e_ssl_res,a2e_ss_id,s_a2e_ss_ids):
+            print("street stub here", x)
+            if x[0].geom_type == "LineString":
+                midpoint = x[0].interpolate(x[0].length / 2)
+                split_lines = ops.split(x[0], midpoint)
+                g1_a2e_ss = geometry.shape(split_lines)
+                gen_type = "Abstraction to show existence - street stub"
+                features.append(
+                    Feature(geometry=g1_a2e_ss, properties={"genType3": gen_type, "BaseAlign": ids, "SketchAlign": sids}))
+                print("street stub", g1_a2e_ss)
+
+
+
+
     if a2e_p_res and a2e_p_res[0]:
         for x, ids, sids in zip(a2e_p_res, a2e_ids_p, s_a2e_ids_p):
             if len(x) == 0:
                 continue
             mpt = geometry.MultiPolygon(x)
-            #res = mpt.convex_hull.wkt
-            #merged_polygon = unary_union(mpt)
             res = mpt.wkt
             g1_a2e = shapely.wkt.loads(res)
             features.append(Feature(geometry=g1_a2e, properties={"genType": "Abstraction to show existence buildings", "BaseAlign": ids, "SketchAlign":sids}))
