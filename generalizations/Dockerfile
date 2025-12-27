@@ -1,23 +1,27 @@
-# Use an official Python runtime as a parent image
-FROM python:3.7
+FROM python:3.7-slim
 
-# Set environment variables
-ENV PYTHONUNBUFFERED 1
-
-# Set the working directory
+ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Install system dependencies for pyproj / geopandas / fiona
+RUN apt-get update && apt-get install -y \
+    gdal-bin \
+    libgdal-dev \
+    proj-bin \
+    libproj-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
+# Upgrade pip (important for wheel resolution)
+RUN pip install --upgrade pip
+
+# Copy requirements first (better caching)
+COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port the app will run on
-EXPOSE 8001
+# Copy the rest of the app
+COPY . /app
 
-# Define the command to run on container start
-# CMD ["python", "manage.py", "makemigrations"]
-# CMD ["python", "manage.py", "migrate"]
+EXPOSE 8003
 
-# Default command to run your Django app
-CMD ["bash", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8001"]
+CMD ["bash", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8003"]
