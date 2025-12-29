@@ -7,7 +7,7 @@ import json
 import os
 import math
 from shapely import geometry, ops, Geometry, snap, unary_union, get_coordinates
-from shapely.geometry import Polygon, LineString, MultiLineString
+from shapely.geometry import Polygon, LineString, MultiLineString, mapping
 import shapely.wkt
 from geojson import Feature, Point, FeatureCollection, Polygon, dump
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -134,6 +134,7 @@ def spatial_transformation():
 
                 if data[k][key]== "Abstraction to show existence - street stub":
                     a2e_ss_id = data[k]['BaseAlign']['0']
+                    print (a2e_ss_id, "check here for street stub")
                     a2e_ss_ids.append(a2e_ss_id)
                     a2e_ss_id1 = data[k]['SketchAlign']['0']
                     s_a2e_ss_ids.append(a2e_ss_id1)
@@ -485,17 +486,19 @@ def spatial_transformation():
     a2e_ss_ids_l=[]
 
 
-    for x in a2e_ss_id:
+    for x in a2e_ss_ids:
+       print (x, "inga varutha")
        line_group = []
-       filtered_geom = [geo['geometry']['coordinates'] for geo in data_ip['features'] if geo['properties']['id'] == x]
-       filtered_geomtype = [geo['geometry']['type'] for geo in data_ip['features'] if geo['properties']['id'] == x]
-       filtered_id = [geo['properties']['id'] for geo in data_ip['features'] if geo['properties']['id'] == x]
+       filtered_geom = [geo['geometry']['coordinates'] for geo in data_ip['features'] if geo['properties']['id'] in x]
+       filtered_geomtype = [geo['geometry']['type'] for geo in data_ip['features'] if geo['properties']['id'] in x]
+       filtered_id = [geo['properties']['id'] for geo in data_ip['features'] if geo['properties']['id'] in x]
        if 'LineString' in filtered_geomtype:
            for i in filtered_geom:
                each_line = geometry.LineString(i)
                line_group.append(each_line)
            a2e_ssl_res.append(line_group)
            a2e_ss_ids_l.append(filtered_id)
+           print ("inga", a2e_ss_ids)
            #print("line",a2e_ids_l)
 
 
@@ -682,16 +685,29 @@ def spatial_transformation():
 
 
     if a2e_ssl_res :
-        for x, ids, sids in zip(a2e_ssl_res,a2e_ss_id,s_a2e_ss_ids):
+        for x, ids, sids in zip(a2e_ssl_res,a2e_ss_ids,s_a2e_ss_ids):
             print("street stub here", x)
+            gen_type = "Abstraction to show existence - street stub"
             if x[0].geom_type == "LineString":
                 midpoint = x[0].interpolate(x[0].length / 2)
                 split_lines = ops.split(x[0], midpoint)
-                g1_a2e_ss = geometry.shape(split_lines)
-                gen_type = "Abstraction to show existence - street stub"
-                features.append(
-                    Feature(geometry=g1_a2e_ss, properties={"genType3": gen_type, "BaseAlign": ids, "SketchAlign": sids}))
-                print("street stub", g1_a2e_ss)
+                for i, part in enumerate(split_lines.geoms, start=1):
+                    # create new IDs per split
+                    new_sketch_id = f"{sids}_{i}"
+                    new_base_id = f"{ids}_{i}"
+
+                    features.append(
+                        Feature(
+                            geometry=mapping(part),
+                            properties={
+                                "genType3": gen_type,
+                                "BaseAlign": new_base_id,
+                                "SketchAlign": new_sketch_id,
+                                "feat_type": "street"
+                            }
+                        )
+                    )
+                print("street stub", new_sketch_id, part)
 
 
 

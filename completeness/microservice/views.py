@@ -53,6 +53,7 @@ def get_streets_mm(mmqcns):
 def get_landmarks_mm(mmqcns):
     lm_count = 0
     for feature in mmqcns['features']:
+        print (feature, "check check")
         if feature['properties']['feat_type'] == "Landmark":
             lm_count += 1
     return lm_count
