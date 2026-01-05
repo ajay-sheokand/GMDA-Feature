@@ -28,7 +28,7 @@
 ### Results
  The Analysis process takes a longer time. Please wait till a modal appears and the completeness, generalization and qualitative accuracy values are computed and filled in. Once the values of all the sketch maps are available, the detailed results can be downloaded using the "Download" button at the end of the results.
 ### Save Project
-The project could be save anytime using the "Download Project" available in the "File" menu at the top-left.
+The project could be saved anytime using the "Download Project" available in the "File" menu at the top-left.
 The downlaoded project could be uploaded later to continue the analysis process.
 ### Upload Project
  1. Upload Base map image.
