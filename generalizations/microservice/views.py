@@ -7,11 +7,11 @@ import json
 import os
 import math
 from shapely import geometry, ops, Geometry, snap, unary_union, get_coordinates
-from shapely.geometry import Polygon, LineString, MultiLineString, mapping
+from shapely.geometry import Polygon, LineString, MultiLineString, mapping, shape
 import shapely.wkt
 from geojson import Feature, Point, FeatureCollection, Polygon, dump
 from django.views.decorators.csrf import ensure_csrf_cookie
-from shapely.ops import unary_union,polygonize
+from shapely.ops import unary_union,polygonize, substring
 from copy import deepcopy
 
 
@@ -485,7 +485,7 @@ def spatial_transformation():
     a2e_ssl_res =[]
     a2e_ss_ids_l=[]
 
-
+#street stub base map
     for x in a2e_ss_ids:
        print (x, "inga varutha")
        line_group = []
@@ -500,6 +500,73 @@ def spatial_transformation():
            a2e_ss_ids_l.append(filtered_id)
            print ("inga", a2e_ss_ids)
            #print("line",a2e_ids_l)
+
+
+    def get_corresponding_base_ids(sketch_ids):
+        corresponding_base_ids=[]
+        for k in data:
+            if (k != "checkAlignnum"):
+                key = 'genType'
+                if key in data[k]:
+                    check = list(filter(lambda x: x in data[k]['SketchAlign']['0'], sketch_ids))
+                    if bool(check):
+                        corresponding_base_ids.append(data[k]['BaseAlign']['0'])
+
+        print("corresponding_base", corresponding_base_ids)
+        return corresponding_base_ids
+
+
+#street stub sketch map
+    flat_ss_sids = {
+        sid
+        for group in s_a2e_ss_ids
+        for sid in group
+    }
+
+    sketch_ids_intersect_mapping = {
+        sid: []
+        for group in s_a2e_ss_ids
+        for sid in group
+    }
+
+    # build sketch geometry lookup
+    sketch_ss_geom_by_sid = {
+        feat["properties"]["sid"]: shape(feat["geometry"])
+        for feat in data_ips["features"]
+        if feat["properties"]["sid"] in flat_ss_sids
+    }
+
+    print("check if", sketch_ss_geom_by_sid, s_a2e_ss_ids)
+
+    for feat in data_ips["features"]:
+        sketch_sid = feat["properties"]["sid"]
+        sketch_geom = shape(feat["geometry"])
+
+        # skip sketch features themselves if needed
+        if sketch_sid in flat_ss_sids:
+            continue
+
+        for sketch_ss_sid, sketch_ss_geom in sketch_ss_geom_by_sid.items():
+            if sketch_geom.intersects(sketch_ss_geom):
+                sketch_ids_intersect_mapping[sketch_ss_sid].append(sketch_sid)
+
+    print ("intersecting", sketch_ids_intersect_mapping)
+    sketch_to_base_mapping = {}
+
+    for sketch_sid, intersecting_sids in sketch_ids_intersect_mapping.items():
+        print("what", intersecting_sids, sketch_sid)
+        base_ids = get_corresponding_base_ids(intersecting_sids)
+        print("corres", base_ids)
+        sketch_to_base_mapping[sketch_sid] = base_ids
+
+    print("check check", sketch_to_base_mapping)
+
+
+
+
+
+
+
 
 
 
@@ -529,21 +596,8 @@ def spatial_transformation():
     #                    coor_p.append(f_coor)
     #                    group_p.append(id)
 
-    #    if coor_l:
-    #        a2e_l.append(coor_l)
-    #    if coor_p:
-    #        a2e_p.append(coor_p)
-    #    if group_l:
-    #        a2e_ids_l.append(group_l)
-    #   if group_p:
-    #       a2e_ids_p.append(group_p)
 
-    #poly_res = []
-    #for sublist in amal_ids:
-        #start = sum([len(sub) for sub in poly_res])
-        #end = start + len(sublist)
-        #poly_res.append(poly[start:end])
-        #print("checkamal", sublist, poly_res)
+
 
     #point_res = []
     #for sublist in c_ids:
@@ -683,31 +737,60 @@ def spatial_transformation():
                 gen_type = "Abstraction to show existence streets"
                 features.append(Feature(geometry=g1_a2e, properties={"genType": gen_type, "BaseAlign":  ids, "SketchAlign":sids}))
 
+    normalized_mapping = {
+        k: {b for sub in v for b in sub}
+        for k, v in sketch_to_base_mapping.items()
+    }
+
+    base_geom_by_id = {
+        feat["properties"]["id"]: shape(feat["geometry"])
+        for feat in data_ip["features"]
+    }
 
     if a2e_ssl_res :
         for x, ids, sids in zip(a2e_ssl_res,a2e_ss_ids,s_a2e_ss_ids):
-            print("street stub here", x)
+
+            print("street stub here", x, sids, sketch_to_base_mapping)
             gen_type = "Abstraction to show existence - street stub"
             if x[0].geom_type == "LineString":
-                midpoint = x[0].interpolate(x[0].length / 2)
-                split_lines = ops.split(x[0], midpoint)
-                for i, part in enumerate(split_lines.geoms, start=1):
-                    # create new IDs per split
-                    new_sketch_id = f"{sids}_{i}"
-                    new_base_id = f"{ids}_{i}"
+                line = x[0]
+                half = line.length / 2
+
+                part1 = substring(line, 0, half)
+                part2 = substring(line, half, line.length)
+
+                split_lines = [part1, part2]
+                for part in split_lines:
+                    # find which base IDs intersect this part
+                    intersecting_base_ids = {
+                        base_id
+                        for base_id, base_geom in base_geom_by_id.items()
+                        if base_geom.intersects(part)
+                    }
+
+                    # decide which sketch street this part belongs to
+                    assigned_sketch = None
+                    for sketch_sid, base_ids in normalized_mapping.items():
+                        if intersecting_base_ids & base_ids:
+                            assigned_sketch = sketch_sid
+                            break
+
+                    if assigned_sketch is None:
+                        continue  # or log warning
 
                     features.append(
                         Feature(
                             geometry=mapping(part),
                             properties={
                                 "genType3": gen_type,
-                                "BaseAlign": new_base_id,
-                                "SketchAlign": new_sketch_id,
+                                "BaseAlign": list(intersecting_base_ids),
+                                "SketchAlign": assigned_sketch,
                                 "feat_type": "street"
                             }
                         )
                     )
-                print("street stub", new_sketch_id, part)
+
+                    print("assigned", assigned_sketch, intersecting_base_ids)
 
 
 
