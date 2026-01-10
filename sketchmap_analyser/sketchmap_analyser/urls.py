@@ -24,5 +24,4 @@ urlpatterns = [
     path('useraccount/', include('django.contrib.auth.urls')),
     path('', TemplateView.as_view(template_name='home.html'), name='home'),
     path('generalizingmaps/', include('generalizingmaps.urls')),
-    path('validation/', include('validation.urls'))
 ]

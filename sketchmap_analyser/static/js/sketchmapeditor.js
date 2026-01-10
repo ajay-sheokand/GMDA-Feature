@@ -537,14 +537,14 @@ var routeIDArray=[];
      console.log(routeIDArray,"check check");
 
  baseUrl = getServiceUrl('validation');
- console.log("What is being sent?", drawnItems, drawnItems.toGeoJSON(20))
+ console.log("What is being sent?", drawnItems, drawnItems.toGeoJSON(2))
 $.ajax({
             headers: { "X-CSRFToken": $.cookie("csrftoken") },
             url: `${baseUrl}/validation/validate/`,
             type: 'POST',
             data: {
                 type: "metric",
-                metricdata: JSON.stringify(drawnItems.toGeoJSON(20)),
+                metricdata: JSON.stringify(drawnItems.toGeoJSON(2)),
                 route: JSON.stringify(routeIDArray),
                 action: 'preview'
             },
@@ -634,7 +634,7 @@ function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type){
                 type: 'POST',
                 data: {
                     type: "metric",
-                    metricdata: JSON.stringify(drawnItems.toGeoJSON(20)),
+                    metricdata: JSON.stringify(drawnItems.toGeoJSON(2)),
                     action: 'apply',
                     merge: JSON.stringify(selectedMergeGroups),
                     snap: JSON.stringify(selectedSnapGroups)
@@ -679,7 +679,7 @@ if (type == "sketch"){
                 type: 'POST',
                 data: {
                     type: "sketch",
-                    sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON(20)),
+                    sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON(2)),
                     action: 'apply',
                     merge: JSON.stringify(selectedMergeGroups),
                     snap: JSON.stringify(selectedSnapGroups),
@@ -825,7 +825,7 @@ drawnItems.eachLayer(function(blayer){
                 console.log("inside Alignment Array=0");
                 checkAlignnum = 1;
                 alignmentArraySingleMap={};
-         var idArray = Object.values(drawnSketchItems.toGeoJSON(20).features).map((item) => item.properties.id);
+         var idArray = Object.values(drawnSketchItems.toGeoJSON(2).features).map((item) => item.properties.id);
          id = Math.max.apply(Math, idArray);
                 drawnSketchItems.eachLayer(function(slayer){
                     slayer.feature.properties.selected = false;
@@ -854,7 +854,7 @@ drawnItems.eachLayer(function(blayer){
             console.log("in AlignmentArray",sketchMaptitle);
             checkAlignnum = AlignmentArray[sketchMaptitle].checkAlignnum;
             alignmentArraySingleMap=AlignmentArray[sketchMaptitle];
-         var idArray = Object.values(drawnSketchItems.toGeoJSON(20).features).map((item) => item.properties.id);
+         var idArray = Object.values(drawnSketchItems.toGeoJSON(2).features).map((item) => item.properties.id);
          id = Math.max.apply(Math, idArray);
              drawnSketchItems.eachLayer(function(slayer){
                   delete slayer.feature.properties.group;
@@ -1302,7 +1302,7 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
             type: 'POST',
             data: {
                 type: "sketch",
-                sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON(20)),
+                sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON(2)),
                 alignment: JSON.stringify(alignmentArraySingleMap),
                 route: JSON.stringify(sketchIDArray),
                 action: 'preview'
@@ -1462,12 +1462,12 @@ function predictGenSingleLine(sketchtype, basetype) {
     var datatobesent = new L.geoJson();
     drawnItems.eachLayer(function(blayer) {
       if ((Object.keys(basetype).map(Number)).includes(blayer.feature.properties.id)) {
-        datatobesent.addData(blayer.toGeoJSON(20));
+        datatobesent.addData(blayer.toGeoJSON(2));
       }
     });
     var coordinates = [];
-    for (var i = 0; i < datatobesent.toGeoJSON(20).features.length; i++) {
-    var feature = datatobesent.toGeoJSON(20).features[i];
+    for (var i = 0; i < datatobesent.toGeoJSON(2).features.length; i++) {
+    var feature = datatobesent.toGeoJSON(2).features[i];
     if (feature.geometry.type === "LineString") {
         coordinates.push(feature.geometry.coordinates);
     }
