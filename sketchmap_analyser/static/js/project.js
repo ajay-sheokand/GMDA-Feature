@@ -59,7 +59,7 @@ function renderGeoJsonFiles(file) {
          routeOrder = Math.max.apply(Math,RouteSeqOrderArray);
          bid = Math.max.apply(Math, bidArray);
 
-           console.log("checccccckk", data)
+
            drawnItems = L.geoJSON(data);
            drawnItems.addTo(layerGroupBasemap);
            allDrawnSketchItems[baseMaptitle] = drawnItems;
@@ -97,7 +97,7 @@ function downloadProject(){
  zip.file("alignment.json",alignment);
 
  for (var key in allDrawnSketchItems) {
-    zip.file(key + ".geojson", JSON.stringify(allDrawnSketchItems[key].toGeoJSON(2)));
+    zip.file(key + ".geojson", JSON.stringify(allDrawnSketchItems[key].toGeoJSON()));
 }
      zip.generateAsync({type:"blob"})
         .then(function(content) {
@@ -108,7 +108,7 @@ function downloadProject(){
 
 
 async function prepareDataForQualifier(index,GenBaseMap){
-MMGeoJsonData = GenBaseMap.toGeoJSON(2);
+MMGeoJsonData = GenBaseMap.toGeoJSON();
     var count = 0;
     MMGeoJsonDataFiltered = {};
     SMGeoJsonDataFiltered = {};
@@ -132,7 +132,7 @@ MMGeoJsonData = GenBaseMap.toGeoJSON(2);
     }
 
 
-SMGeoJsonData = ProcSketchMap.toGeoJSON(2);
+SMGeoJsonData = ProcSketchMap.toGeoJSON();
     var count = 0;
     var streetGroupIdÁrray = [];
     var buildingGroupIdArray = [];
@@ -149,11 +149,9 @@ SMGeoJsonData = ProcSketchMap.toGeoJSON(2);
         }
         else{
            if(group == true){
-           console.lo
            if(SMGeoJsonData.features[i].properties.genType3 != undefined && SMGeoJsonData.features[i].properties.genType3.includes("Multi-MultiOmissionMerge")){
             SMGeoJsonData.features[i].properties.id = 'G' + SMGeoJsonData.features[i].properties.groupID;
             SMGeoJsonDataFiltered.features[count]=SMGeoJsonData.features[i];
-            console.log("MULTI_MULTI");
             count = count + 1;
             }
             if(SMGeoJsonData.features[i].properties.otype == "Line"){
@@ -326,7 +324,6 @@ if (BooleanEditSketchMode){
 
         restoreBaseAlignment(AlignmentArray[currentsketchMap]);
         drawnSketchItems = allDrawnSketchItems[currentsketchMap];
-        console.log(drawnSketchItems,"CHECK HERE");
 
         missingFeaturesCount = 0;
         extraFeaturesCount = 0;
@@ -374,20 +371,19 @@ if (BooleanEditSketchMode){
 
 // Construct the base URL dynamically
 baseUrl = getServiceUrl('generalizations');
-console.log("what is being sent to generalize: ",drawnItems, drawnItems.toGeoJSON(2));
+console.log("what is being sent to generalize: ",drawnItems, drawnItems.toGeoJSON());
 
  $('#loading-spinner').show();
 
 try {
-    console.log("check here check here", currentsketchMap)
     const resp = await $.ajax({
       headers: { "X-CSRFToken": $.cookie("csrftoken") },
       url:  `${baseUrl}/generalizations/requestFME/`,
       type: 'POST',
       data: {
         csrfmiddlewaretoken: $.cookie("csrftoken"),
-        basedata: JSON.stringify(drawnItems.toGeoJSON(2)),
-        sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON(2)),
+        basedata: JSON.stringify(drawnItems.toGeoJSON()),
+        sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
         aligndata: JSON.stringify(AlignmentArray[currentsketchMap]),
         sketchmapName: JSON.stringify(currentsketchMap)
       }
@@ -424,7 +420,6 @@ try {
     Object.assign(responseData, completenessResponse, qualitativeResponse);
 
     TemporaryAlignmentArray = JSON.parse(JSON.stringify(AlignmentArray));
-    console.log("checkAlignmentArray", AlignmentArray);
     setResults_in_output_div(fixedIndex, responseData);
 
   } catch (error) {
@@ -648,7 +643,6 @@ async function analyzeQualitative(index, currentsketchMap, processedSketch, proc
                 qualRelationsBaseMap[index] = response.mmqcn;
                 qualRelationsSketchMap[index] = response.smqcn;
                 resolve(response.qualitative_results);
-                console.log("show2");
                 $('#loading-spinner').show();
             },
             error: function(jqXHR, textStatus, errorThrown) {
@@ -720,7 +714,6 @@ generalizedmap.eachLayer(function(glayer){
 
 
 function setResults_in_output_div(index,resp){
-   console.log("####",resp.sketchMapID);
        cells[index][0].innerHTML = resp.sketchMapID;
        cells[index][2].innerHTML = genResultArray[resp.sketchMapID].overallGen;
        cells[index][1].innerHTML = (resp.totalSketchedStreets+genResultArray[resp.sketchMapID].abstExiStreets)/(resp.toal_mm_streets +genResultArray[resp.sketchMapID].abstExiStreets)*100 + "   " + (resp.totalSketchedLandmarks+ genResultArray[resp.sketchMapID].absExiBuildings)/(resp.total_mm_landmarks+ genResultArray[resp.sketchMapID].absExiBuildings)*100;
@@ -802,7 +795,6 @@ if (Object.keys(qualresponseArray)!=0){
      for (var i = 0;i<numbOfSM-3;i++){
          QualRelationsBaseMapCSV[i] = ["Object 1 , Object 2, Relations"];
          QualRelationsSketchMapCSV[i] = ["Object 1, Object 2, Relations"];
-         console.log("checckk", i, qualRelationsBaseMap[i]);
          if (qualRelationsBaseMap[i]){
         for (var x in qualRelationsBaseMap[i].constraint_collection){
             QualRelationsBaseMapCSV[i].push(" " + ',' +  qualRelationsBaseMap[i].constraint_collection[x].relation_set + ',' + " ");
@@ -822,7 +814,6 @@ if (Object.keys(qualresponseArray)!=0){
 
 
 for (var i in Object.keys(qualresponseArray)){
-console.log(i, Object.keys(qualresponseArray)[i]);
         var sketchmap = Object.keys(qualresponseArray)[i];
         console.log(sketchmap);
         QASummaryCSV.push(sketchmap);
@@ -844,7 +835,6 @@ GeneralizationCSV.push("Sketch Map , BaseId , SketchId , Generalization Type");
  for (var i in Object.keys(tempallDrawnSketchItems)){
 
   var sketchmap = Object.keys(tempallDrawnSketchItems)[i];
-  console.log("checkcheckcheck", sketchmap);
 
     if (TemporaryAlignmentArray[sketchmap]){
     Object.keys(TemporaryAlignmentArray[sketchmap]).forEach(function(key){
@@ -882,7 +872,6 @@ GeneralizationCSV.push("Sketch Map , BaseId , SketchId , Generalization Type");
                 TemporaryAlignmentArray[sketchmap][key].genType = "NOT DEFINED";
           }
         GeneralizationCSV.push(sketchmap + ',' + ((TemporaryAlignmentArray[sketchmap][key].BaseAlign[0]).toString()).replaceAll(",", " ") + ',' + ((TemporaryAlignmentArray[sketchmap][key].SketchAlign[0]).toString()).replaceAll(",", " ") + ',' + ((TemporaryAlignmentArray[sketchmap][key].genType).toString()) ) ;
-        console.log("check check check", (TemporaryAlignmentArray[sketchmap][key].genType).toString() )
         }
    // do something with key or value
 
@@ -924,7 +913,7 @@ if (Object.keys(qualresponseArray)!=0){
                 zip.file("QASummary.csv", QASummaryCSV.join("\n"));
 }
         for (var i in Object.keys(allGenBaseMap)){
-        zip.folder("GeneralizedBaseMap").file(Object.keys(allGenBaseMap)[i]+".geojson", JSON.stringify(allGenBaseMap[Object.keys(allGenBaseMap)[i]].toGeoJSON(2)));
+        zip.folder("GeneralizedBaseMap").file(Object.keys(allGenBaseMap)[i]+".geojson", JSON.stringify(allGenBaseMap[Object.keys(allGenBaseMap)[i]].toGeoJSON()));
         }
         zip.generateAsync({type:"blob"})
         .then(function(content) {

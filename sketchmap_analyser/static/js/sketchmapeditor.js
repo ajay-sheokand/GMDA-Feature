@@ -485,7 +485,7 @@ baseMap.on('pm:create', function (event) {
     props.selected=false;
     props.aligned=false;
     props.otype = event.shape;
-    console.log("the polygon is created here", layer)
+    console.log("the feature is created here", layer)
 
     drawnItems.addLayer(layer);
       // 🔹 commit snapping to ALL existing base geometries (lines + polygons)
@@ -534,17 +534,17 @@ var routeIDArray=[];
         routeIDArray.push(byrouteorder[i].id);
      }
 
-     console.log(routeIDArray,"check check");
+
 
  baseUrl = getServiceUrl('validation');
- console.log("What is being sent?", drawnItems, drawnItems.toGeoJSON(2))
+ console.log("What is being sent?", drawnItems, drawnItems.toGeoJSON())
 $.ajax({
             headers: { "X-CSRFToken": $.cookie("csrftoken") },
             url: `${baseUrl}/validation/validate/`,
             type: 'POST',
             data: {
                 type: "metric",
-                metricdata: JSON.stringify(drawnItems.toGeoJSON(2)),
+                metricdata: JSON.stringify(drawnItems.toGeoJSON()),
                 route: JSON.stringify(routeIDArray),
                 action: 'preview'
             },
@@ -561,7 +561,6 @@ $.ajax({
 
 let currentAudit = null; // store latest audit globally
 function showpreviewModal(audit, type){
-console.log(audit, "cheeeek");
  currentAudit = audit;  // save for later when submitting
 let mergetext = "";
 let snaptext = "";
@@ -617,8 +616,7 @@ document.getElementById("modalSubmitBtn").onclick = function () {
         selectedMergeGroups.push(currentAudit.merge[idx]); // whole object {new_id, merged_from}
     });
 
-    console.log("Selected snap groups:", selectedSnapGroups);
-    console.log("Selected merge groups:", selectedMergeGroups);
+
 
     callApplyValidate (selectedSnapGroups, selectedMergeGroups,type);
 };
@@ -634,7 +632,7 @@ function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type){
                 type: 'POST',
                 data: {
                     type: "metric",
-                    metricdata: JSON.stringify(drawnItems.toGeoJSON(2)),
+                    metricdata: JSON.stringify(drawnItems.toGeoJSON()),
                     action: 'apply',
                     merge: JSON.stringify(selectedMergeGroups),
                     snap: JSON.stringify(selectedSnapGroups)
@@ -679,7 +677,7 @@ if (type == "sketch"){
                 type: 'POST',
                 data: {
                     type: "sketch",
-                    sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON(2)),
+                    sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
                     action: 'apply',
                     merge: JSON.stringify(selectedMergeGroups),
                     snap: JSON.stringify(selectedSnapGroups),
@@ -815,17 +813,15 @@ drawnItems.eachLayer(function(blayer){
         sketchMap.fitBounds(bounds);
         enableDefaultArrows(sketchMap);
         sketchMaptitle = $(e.target).parent().attr("data-original-title");
-        console.log(allDrawnSketchItems);
             labelButtonSketchMap.addTo(sketchMap);
         if(allDrawnSketchItems.hasOwnProperty(sketchMaptitle)){
             drawnSketchItems=allDrawnSketchItems[sketchMaptitle];
             drawnSketchItems.addTo(sketchMap);
             (!(sketchMaptitle in AlignmentArray))
             if (!(sketchMaptitle in AlignmentArray)){
-                console.log("inside Alignment Array=0");
                 checkAlignnum = 1;
                 alignmentArraySingleMap={};
-         var idArray = Object.values(drawnSketchItems.toGeoJSON(2).features).map((item) => item.properties.id);
+         var idArray = Object.values(drawnSketchItems.toGeoJSON().features).map((item) => item.properties.id);
          id = Math.max.apply(Math, idArray);
                 drawnSketchItems.eachLayer(function(slayer){
                     slayer.feature.properties.selected = false;
@@ -851,10 +847,9 @@ drawnItems.eachLayer(function(blayer){
         styleLayers();
         }
         else{
-            console.log("in AlignmentArray",sketchMaptitle);
             checkAlignnum = AlignmentArray[sketchMaptitle].checkAlignnum;
             alignmentArraySingleMap=AlignmentArray[sketchMaptitle];
-         var idArray = Object.values(drawnSketchItems.toGeoJSON(2).features).map((item) => item.properties.id);
+         var idArray = Object.values(drawnSketchItems.toGeoJSON().features).map((item) => item.properties.id);
          id = Math.max.apply(Math, idArray);
              drawnSketchItems.eachLayer(function(slayer){
                   delete slayer.feature.properties.group;
@@ -1302,7 +1297,7 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
             type: 'POST',
             data: {
                 type: "sketch",
-                sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON(2)),
+                sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
                 alignment: JSON.stringify(alignmentArraySingleMap),
                 route: JSON.stringify(sketchIDArray),
                 action: 'preview'
@@ -1354,7 +1349,6 @@ if (alignmentArraySingleMap[i].SketchAlign){
 if (alignmentArraySingleMap[i].SketchAlign[0].some(item => alignSketchID.includes(item))){
  drawnSketchItems.eachLayer(function (slayer){
    if ((alignmentArraySingleMap[i].SketchAlign[0]).includes(slayer.feature.properties.sid)){
-   console.log(slayer.feature.properties.id);
     slayer.feature.properties.aligned = false;
     slayer.feature.properties.isRoute = null;
     slayer.feature.properties.group = null;
@@ -1367,7 +1361,6 @@ if (alignmentArraySingleMap[i].SketchAlign[0].some(item => alignSketchID.include
      });
      delete alignmentArraySingleMap[i];
      styleLayers();
- console.log("iuasd");
  }
 }
 }
@@ -1462,12 +1455,12 @@ function predictGenSingleLine(sketchtype, basetype) {
     var datatobesent = new L.geoJson();
     drawnItems.eachLayer(function(blayer) {
       if ((Object.keys(basetype).map(Number)).includes(blayer.feature.properties.id)) {
-        datatobesent.addData(blayer.toGeoJSON(2));
+        datatobesent.addData(blayer.toGeoJSON());
       }
     });
     var coordinates = [];
-    for (var i = 0; i < datatobesent.toGeoJSON(2).features.length; i++) {
-    var feature = datatobesent.toGeoJSON(2).features[i];
+    for (var i = 0; i < datatobesent.toGeoJSON().features.length; i++) {
+    var feature = datatobesent.toGeoJSON().features[i];
     if (feature.geometry.type === "LineString") {
         coordinates.push(feature.geometry.coordinates);
     }
@@ -1562,14 +1555,18 @@ function addMouseCoordinateDisplay(map, label) {
     coordControl.addTo(map);
 
     map.on('mousemove', function(e) {
-        // For CRS.Simple these are basically "image coordinates"
-        var x = e.latlng.lat.toFixed(10);
-        var y = e.latlng.lng.toFixed(10);
 
-        var el = document.getElementById('coord-display-' + label);
-        if (el) {
-            el.innerHTML = label + ': x: ' + x + ', y: ' + y;
-        }
+
+    // pixel coords inside map container (often integers)
+    const pt = map.latLngToContainerPoint(e.latlng);
+    // your displayed values
+    var x = e.latlng.lat.toFixed(10);
+    var y = e.latlng.lng.toFixed(10);
+
+    var el = document.getElementById('coord-display-' + label);
+    if (el) {
+        el.innerHTML = label + ': x: ' + x + ', y: ' + y;
+    }
     });
 
     map.on('mouseout', function() {

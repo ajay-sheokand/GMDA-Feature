@@ -87,66 +87,96 @@ def directional_relation(referent, relatum, front, rng, sectors):
 
 ################## for left-right relations #########################################################
 
-def excludes(line, other):
-    if (isinstance(other, Point)):
-        lr = line.coords[:]
-        lr.extend(other.coords[:])
-        return is_clockwise(Polygon(lr))
-    elif (isinstance(other, LineString)):
-        excluded = False
-        for point in other.coords[:]:
-            excluded = excluded or excludes(line, Point(point))
-        return excluded
-    else:
-        return None
 
-def left_or_right(polyline, other):
-    pts_left = 0
-    pts_right = 0
-    
-    # check where each point of other is - left or right
-    for point in other.coords[:]:
-        includers = deque()
-        excluders = deque()
-        
-        coords = polyline.coords[:]
-        for line in [LineString((coords[i],coords[i+1])) for i in range(len(coords[:-1]))]:
-            if excludes(line, Point(point)):
-                excluders.appendleft(line)
-            else:
-                includers.appendleft(line)        
-        
-        pt_in = False
-        done = len(includers) == 0
-                
-        while not done:
-            
-            e = includers.pop()
-            for i in range(len(excluders)):
-                e_ = excluders.pop()
-                if not (excludes(e, e_) and excludes(e_, e)):
-                    excluders.appendleft(e_)
-                
-            if len(excluders) == 0:
-                pt_in = True
-                done = True
-                
-            if len(includers) == 0:
-                done = True
-                                        
-        if pt_in:
-            pts_left+=1
+EPS = 1e-9
+
+
+def _cross(ax, ay, bx, by):
+    """2D cross product of vectors a and b"""
+    return ax * by - ay * bx
+
+
+def _closest_segment_index(polyline: LineString, p: Point):
+    """
+    Returns the index i of the segment (coords[i] -> coords[i+1]) of polyline
+    that is closest to point p.
+    """
+    coords = list(polyline.coords)
+    px, py = p.x, p.y
+
+    best_i = 0
+    best_d2 = float("inf")
+
+    for i in range(len(coords) - 1):
+        x1, y1 = coords[i]
+        x2, y2 = coords[i + 1]
+
+        # project point onto segment
+        dx = x2 - x1
+        dy = y2 - y1
+        seg_len2 = dx * dx + dy * dy
+
+        if seg_len2 < EPS:
+            # degenerate segment
+            d2 = (px - x1) ** 2 + (py - y1) ** 2
         else:
-            pts_right+=1
-                
-    if pts_left > 0 and pts_right > 0:
-        return 'crosses'
-    elif pts_left > 0:
-        return 'left'
-    elif pts_right > 0:
-        return 'right'
-    else:
-        raise Exception('something went wrong')
+            t = ((px - x1) * dx + (py - y1) * dy) / seg_len2
+            t = max(0.0, min(1.0, t))
+            projx = x1 + t * dx
+            projy = y1 + t * dy
+            d2 = (px - projx) ** 2 + (py - projy) ** 2
+
+        if d2 < best_d2:
+            best_d2 = d2
+            best_i = i
+
+    return best_i
+
+
+def left_or_right(polyline: LineString, other: LineString, treat_on_line_as="either"):
+
+    coords = list(polyline.coords)
+    left = 0
+    right = 0
+
+    for ox, oy in other.coords:
+        p = Point(ox, oy)
+
+        # nearest segment of polyline
+        i = _closest_segment_index(polyline, p)
+        x1, y1 = coords[i]
+        x2, y2 = coords[i + 1]
+
+        # vector along segment
+        sx, sy = (x2 - x1), (y2 - y1)
+        # vector from segment start to point
+        px, py = (ox - x1), (oy - y1)
+
+        c = _cross(sx, sy, px, py)
+
+        if abs(c) <= EPS:
+            # on the line
+            if treat_on_line_as == "left":
+                left += 1
+            elif treat_on_line_as == "right":
+                right += 1
+            else:
+                pass  # ignore
+        elif c > 0:
+            left += 1
+        else:
+            right += 1
+
+        # early exit if already crosses
+        if left > 0 and right > 0:
+            return "crosses"
+
+    if left > 0:
+        return "left"
+    if right > 0:
+        return "right"
+    return "crosses"  # fallback if all points were on the line
+
 
 ############################### relative distance and adjacency ##########################################
 def computeMinMaxDist(polygonList, StreetList):
@@ -167,13 +197,13 @@ def computeMinMaxDist(polygonList, StreetList):
     maxMinDist = max(minDistList)
 
     #print("maxdistance....:",maxMinDist)
-    return maxMinDist+5
+    return maxMinDist*0.10
 
 
 ############################### Compute Adjacency ##########################################
    
 def computeAdjacency(poly, street, maxdist):
-   # print("maxDistance...:",maxdist)
+   print("maxDistance...:",maxdist)
    touches_pattern = pattern("212101212")
    streetBuffer = street.buffer(maxdist)
    im_pattern = streetBuffer.relate(poly)

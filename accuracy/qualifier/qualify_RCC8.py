@@ -24,6 +24,7 @@ EQ_pattern = pattern('T*F**FFF*')
 
 
 def polygonal_topology(p1, p2):
+    print("check here", p1, p2)
     im_pattern = p1.relate(p2)
 
     # return im_pettern

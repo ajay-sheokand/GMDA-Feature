@@ -24,6 +24,7 @@ def qualify_LeftRight(data):
     for sec in data:
         if (sec['geometry'].geom_type=='LineString' and sec['attributes']['isRoute']=='Yes'):
             for i in range(len(data)):
+                print(sec['attributes']['id'], data[i]['attributes']['id'])
                 if (data[i]['geometry'].geom_type=='Polygon'):
                     #check that the two geoms are adjacent
                     isAdjacent= computeAdjacency(data[i]['geometry'], sec['geometry'], maxMinDist)
@@ -31,7 +32,9 @@ def qualify_LeftRight(data):
                     if(isAdjacent == "Adjacent"):
                         rel={'obj 1':sec['attributes']['id'], 'obj 2':data[i]['attributes']['id'], 'relation': left_or_right(sec['geometry'],data[i]['geometry'].exterior)}
                         rels.append(rel)
+                        print("adjacent")
                     if not (isAdjacent == "Adjacent"):
                         rel={'obj 1':sec['attributes']['id'], 'obj 2':data[i]['attributes']['id'], 'relation': "nonAdjacent"}
                         rels.append(rel)
+                        print("not adjacent")
     return relation_set, arity, {},rels
