@@ -131,7 +131,6 @@ def snap_line_endpoints(lines_gdf, bounds=[[0,0],[600,850]]):
     height = ymax - ymin
     tolerance = 0.01 * min(width, height)  # 1% of smaller dimension
 
-    print(f"Dynamic tolerance in coordinate units: {tolerance:.3f}")
 
     # Snap endpoints
     endpoints_union = unary_union(endpoints_gs)
@@ -147,23 +146,20 @@ def snap_line_endpoints(lines_gdf, bounds=[[0,0],[600,850]]):
         if row.geometry.wkt != before_wkt[_id]:
             changed_ids.append(_id)
 
-    print(changed_ids, "changed",snapped_lines)
 
     return snapped_lines,changed_ids
 
 def find_snapped_groups(original_lines_gdf, snapped_lines_gdf, id_col="id"):
     # Step 1: before intersections
     before_pairs = endpoint_intersection_pairs(original_lines_gdf, id_col=id_col)
-    print("before", before_pairs)
 
     # Step 2: after intersections
     after_pairs = endpoint_intersection_pairs(snapped_lines_gdf, id_col=id_col)
-    print("after", after_pairs)
 
     # Step 3: pairs that are new (were not intersecting before)
     new_pairs = after_pairs - before_pairs
 
-    print ("check check", new_pairs)
+
 
     return new_pairs
 
@@ -197,7 +193,6 @@ def endpoint_intersection_pairs(lines_gdf, id_col="id"):
 
         sid = row[id_col]
         coords = list(geom.coords)
-        print(coords, "check check check")
         for (x, y) in coords:
             rows.append({"id": sid, "x": x, "y": y})
 
@@ -205,14 +200,12 @@ def endpoint_intersection_pairs(lines_gdf, id_col="id"):
         return set()
 
     df_ep = pd.DataFrame(rows)
-    print(df_ep, "check here")
 
     # group by coordinate, collect ids that meet at that coordinate
     grouped = df_ep.groupby(["x", "y"])["id"].apply(list)
 
     pairs = set()
     for seg_ids in grouped:
-        print("idssss", seg_ids)
         if len(seg_ids) < 2:
             continue
         seg_ids = [_to_native_id(s) for s in seg_ids]
@@ -282,6 +275,7 @@ def remap_alignment_ids(alignment, id_mapping):
 
 
 def validateRoute(line_gdf, route_ids, id_col="id", inplace=False):
+    print ("check if everything is fine in route",route_ids)
     if not route_ids or len(route_ids) < 2:
         return line_gdf if inplace else line_gdf.copy()
 
@@ -291,6 +285,7 @@ def validateRoute(line_gdf, route_ids, id_col="id", inplace=False):
     id_to_idx = {val: idx for idx, val in gdf[id_col].items()}
 
     if len(route_ids) >= 2:
+        print ("check here route")
         f_id, s_id = route_ids[0], route_ids[1]
         f_idx = id_to_idx.get(f_id)
         s_idx = id_to_idx.get(s_id)
@@ -363,7 +358,7 @@ def apply_approved_snaps(line_gdf, snap_groups, id_col="id", inplace=False):
 
     # id -> row index
     id_to_idx = {row_id: idx for idx, row_id in gdf[id_col].items()}
-
+    snap_groups = snap_groups or []
     for group in snap_groups:
         if not group or len(group) < 2:
             continue
@@ -420,7 +415,6 @@ def apply_approved_snaps(line_gdf, snap_groups, id_col="id", inplace=False):
 from shapely.ops import linemerge
 
 def apply_approved_merges(line_gdf, merge_groups, id_col="id", inplace=False):
-    print("mergepairs", merge_groups)
 
     gdf = line_gdf if inplace else line_gdf.copy()
 
@@ -428,7 +422,6 @@ def apply_approved_merges(line_gdf, merge_groups, id_col="id", inplace=False):
     id_to_idx = {row_id: idx for idx, row_id in gdf[id_col].items()}
 
     rows_to_drop = []
-
     for group in merge_groups:
         if not group or len(group) < 2:
             continue
@@ -436,7 +429,6 @@ def apply_approved_merges(line_gdf, merge_groups, id_col="id", inplace=False):
         # collect valid indices for this group
         idxs = []
         for sid in group:
-            print("mergecheck", sid)
             idx = id_to_idx.get(sid)
             if idx is not None:
                 idxs.append(idx)
@@ -477,7 +469,9 @@ def validate(request):
     if type == "metric":
         metricmapdata = request.POST.get('metricdata')
         routearray_raw = request.POST.get('route')  # string like "[1,2,3]"
+        print("routearray_", routearray_raw)
         route_ids = json.loads(routearray_raw) if routearray_raw else []
+        print(route_ids)
 
         metricMap = json.loads(metricmapdata)
 
@@ -501,7 +495,6 @@ def validate(request):
 
         # --- Snap and merge Lines ---
         snapped_lines, snapped_ids = snap_line_endpoints(line_gdf)
-        print("what are snapped lines", snapped_lines)
         grouped_snaps = find_snapped_groups(line_gdf, snapped_lines)
         merged_lines_json, id_mapping,merged_audit = merge_simple_intersections(snapped_lines)
 
@@ -509,7 +502,6 @@ def validate(request):
 
         snap_id_pairs = [sorted(list(g)) for g in grouped_snaps]
 
-        print("check for snapped", grouped_snaps)
         audit = {
             "snap": snap_id_pairs,
             "merge": merged_audit
@@ -530,8 +522,10 @@ def validate(request):
 
             snapped_lines = apply_approved_snaps(line_gdf, approved_snap_json, id_col="id", inplace=False)
 
+            approved_merge_json = approved_merge_json or []
             merge_groups = [m["merged_from"] for m in approved_merge_json]
             merged_lines = apply_approved_merges(snapped_lines, merge_groups, id_col="id", inplace=False)
+            print ("inside apply", route_ids)
             routecorrected = validateRoute(merged_lines, route_ids, id_col="id", inplace=False)
 
             edited_lines_geojson = json.loads(routecorrected.to_json())
@@ -544,7 +538,6 @@ def validate(request):
                 "features": edited_line_features + polygon_features
             }
 
-            print (polygon_features, "the backend polygon is here")
 
 
 
@@ -581,12 +574,11 @@ def validate(request):
 
         # --- Snap and merge Lines ---
         snapped_lines, snapped_ids = snap_line_endpoints(line_gdf)
-        print("what are snapped lines", snapped_lines)
         grouped_snaps = find_snapped_groups(line_gdf, snapped_lines)
         merged_lines_json, id_mapping, merged_audit = merge_simple_intersections(snapped_lines)
         snap_id_pairs = [sorted(list(g)) for g in grouped_snaps]
 
-        print("check for snapped", grouped_snaps)
+
         audit = {
             "snap": snap_id_pairs,
             "merge": merged_audit
@@ -606,8 +598,10 @@ def validate(request):
 
             snapped_lines = apply_approved_snaps(line_gdf, approved_snap_json, id_col="id", inplace=False)
 
+            approved_merge_json = approved_merge_json or []
             merge_groups = [m["merged_from"] for m in approved_merge_json]
             merged_lines = apply_approved_merges(snapped_lines, merge_groups, id_col="id", inplace=False)
+            print ("inside apply", route_ids)
             routecorrected = validateRoute(merged_lines, route_ids, id_col="id", inplace=False)
 
             edited_lines_geojson = json.loads(routecorrected.to_json())

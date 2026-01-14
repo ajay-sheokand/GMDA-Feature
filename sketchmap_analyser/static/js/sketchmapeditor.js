@@ -211,6 +211,47 @@ function enableDefaultArrows(map) {
 
 
 
+function enableRouteSelect(btn) {
+  console.log("is this getting fired-route");
+  baseMap.pm.disableDraw();
+  baseMap.pm.disableGlobalEditMode();
+
+  $($(btn)[0]._container).css('display','inline-flex');
+  btn.button.style.boxShadow = 'inset 0 -1px 5px 2px rgba(81, 77, 77, 1)';
+
+  if (!document.getElementById("clearRoute")) {
+    $($(btn)[0]._container).append(
+      $("<a style='outline: none;width: fit-content;' id='clearRoute' onclick='clearRoute()'>Clear Route</a>")
+    );
+  }
+
+  drawnItems.eachLayer(function (blayer) {
+    blayer.on("click", function (e) {
+      if (blayer.feature.properties.otype === "Line") {
+        if (!blayer.feature.properties.isRoute) {
+          blayer.feature.properties.isRoute = "Yes";
+          blayer.feature.properties.RouteSeqOrder = routeOrder + 1;
+          blayer.setStyle({ color: "red" });
+          routeOrder = routeOrder + 1;
+        } else if (blayer.feature.properties.isRoute === "Yes") {
+          blayer.feature.properties.isRoute = null;
+          delete blayer.feature.properties.RouteSeqOrder;
+          blayer.setStyle({ color: "#e8913a" });
+          routeOrder = routeOrder - 1;
+        }
+      }
+    });
+  });
+}
+
+function disableRouteSelect(btn) {
+  btn.button.style.boxShadow = null;
+  $("#clearRoute").remove();
+
+  drawnItems.eachLayer(function (blayer) {
+    blayer.off("click"); // remove only our handler
+  });
+}
 
 
  var routeButton = L.easyButton({
@@ -218,49 +259,18 @@ function enableDefaultArrows(map) {
  states: [{
             stateName: 'Select-Route-Mode-On',        // name the state
             icon:      'fa-arrow-trend-up',               // and define its properties
-            title:     'SelectRouteOff',      // like its title
+            title:     'SelectRouteOff',      //  its title
             onClick: function(btn, map) {
-                $($(this)[0]._container).css('display','inline-flex');
-                btn.button.style.boxShadow = 'inset 0 -1px 5px 2px rgba(81, 77, 77, 1)';
-
-                $($(this)[0]._container).append($("<a style='outline: none;width: fit-content;' id = 'clearRoute' onclick='clearRoute()'>Clear Route</a>"));
-                drawnItems.eachLayer(function(blayer){
-
-                    blayer.on('click',function(e){
-                    if (blayer.feature.properties.otype == "Line"){
-                    if (!blayer.feature.properties.isRoute){
-                        blayer.feature.properties.isRoute = "Yes";
-                        blayer.feature.properties.RouteSeqOrder = routeOrder + 1;
-                        blayer.setStyle({
-                            color: 'red'   //or whatever style you wish to use;
-                        });
-                        routeOrder = routeOrder + 1;
-                    }
-                    else if (blayer.feature.properties.isRoute == "Yes"){
-                        blayer.feature.properties.isRoute = null ;
-                        delete blayer.feature.properties.RouteSeqOrder;
-                        blayer.setStyle({
-                            color: '#e8913a'   //or whatever style you wish to use;
-                        });
-                        routeOrder = routeOrder - 1;
-                     }
-                     }
-                });
-
-            });
-             btn.state('Select-Route-Mode-Off');    // change state on click!
+                 enableRouteSelect(btn);
+                 btn.state('Select-Route-Mode-Off');    // change state on click!
             }
         }, {
             stateName: 'Select-Route-Mode-Off',
             icon:      'fa-arrow-trend-up',
             title:     'SelectRouteOn',
             onClick: function(btn, map) {
-                btn.button.style.boxShadow = null;// and its callback
-                $( "#clearRoute" ).remove();
-               drawnItems.eachLayer(function(blayer){
-                blayer.off('click');
-                });
-                btn.state('Select-Route-Mode-On');
+                disableRouteSelect(btn);
+                btn.state("Select-Route-Mode-On");
             }
     }]
 
@@ -461,7 +471,30 @@ baseMap.pm.addControls({
     console.log('SNAP on', e.snapLatLng, 'dist(px)=', e.distance);
   });
 
+  baseMap.on("pm:globaleditmodetoggled", (e) => {
+  if (e.enabled && routeButton._currentState.stateName === "Select-Route-Mode-Off") {
+    disableRouteSelect(routeButton);
+    routeButton.state("Select-Route-Mode-On");
+  }
+});
+
+baseMap.on("pm:globalremovalmodetoggled", (e) => {
+  if (e.enabled && routeButton._currentState.stateName === "Select-Route-Mode-Off") {
+    disableRouteSelect(routeButton);
+    routeButton.state("Select-Route-Mode-On");
+  }
+});
+
+  baseMap.on('pm:drawstart', function(e){
+   if (routeButton._currentState.stateName === "Select-Route-Mode-Off") {
+    disableRouteSelect(routeButton);
+    routeButton.state("Select-Route-Mode-On");
+  }
+
+  });
+
 baseMap.on('pm:create', function (event) {
+
     bid=bid+1;
     var layer = event.layer;
 
@@ -549,8 +582,13 @@ $.ajax({
                 action: 'preview'
             },
             success: function(response) {
-                showpreviewModal(response.audit, "metric");
-                console.log("success",response);
+             if (response.audit.merge.length != 0 || response.audit.snap.length !=0) {
+                console.log("check if being fired merge and snap");
+                showpreviewModal(response.audit, "metric",routeIDArray);
+                }
+             else {
+               callApplyValidate (null, null,"metric",routeIDArray);
+             }
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 console.error('Error in metric map validation:', errorThrown);
@@ -560,7 +598,7 @@ $.ajax({
 });
 
 let currentAudit = null; // store latest audit globally
-function showpreviewModal(audit, type){
+function showpreviewModal(audit, type,routeArray){
  currentAudit = audit;  // save for later when submitting
 let mergetext = "";
 let snaptext = "";
@@ -618,12 +656,13 @@ document.getElementById("modalSubmitBtn").onclick = function () {
 
 
 
-    callApplyValidate (selectedSnapGroups, selectedMergeGroups,type);
+    callApplyValidate (selectedSnapGroups, selectedMergeGroups,type,routeArray);
 };
 }
 
 
-function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type){
+
+function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type, routeArray){
 
  if (type == "metric"){
     $.ajax({
@@ -633,35 +672,14 @@ function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type){
                 data: {
                     type: "metric",
                     metricdata: JSON.stringify(drawnItems.toGeoJSON()),
+                    route: JSON.stringify(routeArray),
                     action: 'apply',
                     merge: JSON.stringify(selectedMergeGroups),
                     snap: JSON.stringify(selectedSnapGroups)
                 },
                 success: function(response) {
                     console.log("success",response);
-                    if (drawnItems != null) {
-                        layerGroupBasemap.removeLayer(drawnItems);
-                     }
-                    drawnItems = L.geoJSON(response.modifiedStreets);
-                    drawnItems.addTo(layerGroupBasemap);
-                    styleLayers();
-                    drawnItems.eachLayer(function(blayer){
-                        blayer.off('click');
-                    });
-
-                    if (addedClickBase == false){
-                        addClickBase();
-                    }
-                    $( "#marked" ).prop( "checked", true );
-                    $( "#marked" ).prop( "disabled", false );
-                    baseMap.pm.disableDraw();
-                    baseMap.pm.removeControls();
-                    drawnItems.setStyle({opacity:1});
-
-
-                    baseMap.removeControl(routeButton);
-
-                    allDrawnSketchItems[baseMaptitle] = drawnItems;
+                    aftersuccessfulvalidationmetric(response.modifiedStreets)
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
                     console.error('Error in completeness analysis:', errorThrown);
@@ -679,23 +697,14 @@ if (type == "sketch"){
                     type: "sketch",
                     sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
                     action: 'apply',
+                    route: JSON.stringify(routeArray),
                     merge: JSON.stringify(selectedMergeGroups),
                     snap: JSON.stringify(selectedSnapGroups),
                     alignment: JSON.stringify(alignmentArraySingleMap)
                 },
                 success: function(response) {
                     console.log("success",response);
-                    if (drawnSketchItems != null) {
-                    sketchMap.removeLayer(drawnSketchItems);
-                 }
-                drawnSketchItems = L.geoJSON(response.modifiedStreets);
-                drawnSketchItems.addTo(sketchMap);
-                styleLayers();
-                hoverfunction();
-
-                BooleanEditSketchMode = false;
-                alignmentArraySingleMap = response.updated_alignment;
-                saveSketchMap();
+                    aftersuccessfulvalidationsketch(response);
 
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
@@ -711,10 +720,51 @@ if (type == "sketch"){
 }
 
 
+function aftersuccessfulvalidationmetric(response){
+if (drawnItems != null) {
+                        layerGroupBasemap.removeLayer(drawnItems);
+                     }
+                    drawnItems = L.geoJSON(response);
+                    drawnItems.addTo(layerGroupBasemap);
+                    styleLayers();
+                    drawnItems.eachLayer(function(blayer){
+                        blayer.off('click');
+                    });
+
+                    if (addedClickBase == false){
+                        addClickBase();
+                    }
+                    $( "#marked" ).prop( "checked", true );
+                    $( "#marked" ).prop( "disabled", false );
+                    baseMap.pm.disableDraw();
+                    baseMap.pm.removeControls();
+                    drawnItems.setStyle({opacity:1});
+
+
+                    baseMap.removeControl(routeButton);
+                    baseMap.removeControl(multibuildingButton);
+
+                    allDrawnSketchItems[baseMaptitle] = drawnItems;
 
 
 
 
+}
+
+
+function aftersuccessfulvalidationsketch(response){
+if (drawnSketchItems != null) {
+                    sketchMap.removeLayer(drawnSketchItems);
+                 }
+                drawnSketchItems = L.geoJSON(response.modifiedStreets);
+                drawnSketchItems.addTo(sketchMap);
+                styleLayers();
+                hoverfunction();
+
+                BooleanEditSketchMode = false;
+                alignmentArraySingleMap = response.updated_alignment;
+                saveSketchMap();
+}
 
 
 function makeModalMovable(modalId) {
@@ -1267,6 +1317,7 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
      allDrawnSketchItems[sketchMaptitle]=drawnSketchItems;
       drawnSketchItems.setStyle({opacity:1});
       AlignmentArray[sketchMaptitle]=alignmentArraySingleMap;
+      console.log("sketchmap", sketchMaptitle,alignmentArraySingleMap);
       AlignmentArray[sketchMaptitle].checkAlignnum = checkAlignnum;
    }
    }
@@ -1304,7 +1355,13 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
             },
             success: function(response) {
                 console.log("successsketch",response.audit);
-                showpreviewModal(response.audit, "sketch");
+                if (response.audit.merge.length != 0 || response.audit.snap.length !=0) {
+                showpreviewModal(response.audit, "sketch",sketchIDArray);
+                }
+                else{
+                     callApplyValidate (null, null,"sketch",sketchIDArray);
+
+                }
                 /*
                  if (drawnSketchItems != null) {
                     sketchMap.removeLayer(drawnSketchItems);

@@ -88,7 +88,7 @@ def directional_relation(referent, relatum, front, rng, sectors):
 ################## for left-right relations #########################################################
 
 
-EPS = 1e-9
+EPS = 1e-3
 
 
 def _cross(ax, ay, bx, by):
@@ -133,7 +133,7 @@ def _closest_segment_index(polyline: LineString, p: Point):
     return best_i
 
 
-def left_or_right(polyline: LineString, other: LineString, treat_on_line_as="either"):
+def left_or_right(polyline: LineString, other: LineString):
 
     coords = list(polyline.coords)
     left = 0
@@ -153,15 +153,10 @@ def left_or_right(polyline: LineString, other: LineString, treat_on_line_as="eit
         px, py = (ox - x1), (oy - y1)
 
         c = _cross(sx, sy, px, py)
+        print ("value of cross product", c, "absolute", abs(c))
 
         if abs(c) <= EPS:
-            # on the line
-            if treat_on_line_as == "left":
-                left += 1
-            elif treat_on_line_as == "right":
-                right += 1
-            else:
-                pass  # ignore
+            pass  # ignore
         elif c > 0:
             left += 1
         else:
@@ -196,14 +191,13 @@ def computeMinMaxDist(polygonList, StreetList):
     #print("mindistance----",minDistList)
     maxMinDist = max(minDistList)
 
-    #print("maxdistance....:",maxMinDist)
-    return maxMinDist*0.10
+    print("maxdistance....:",maxMinDist)
+    return maxMinDist+5
 
 
 ############################### Compute Adjacency ##########################################
    
 def computeAdjacency(poly, street, maxdist):
-   print("maxDistance...:",maxdist)
    touches_pattern = pattern("212101212")
    streetBuffer = street.buffer(maxdist)
    im_pattern = streetBuffer.relate(poly)
