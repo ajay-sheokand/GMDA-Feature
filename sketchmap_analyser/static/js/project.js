@@ -44,6 +44,8 @@ function renderGeoJsonFiles(file) {
     var fileName = file.name;
     var reader = new FileReader();
     reader.readAsDataURL(file);
+
+    console.log(fileName, baseMaptitle);
     if (fileName.includes('alignment')){
     reader.onload = function () {
         $.getJSON(reader.result, function (data) {
@@ -51,7 +53,7 @@ function renderGeoJsonFiles(file) {
         });
     }}
 
-    if (fileName.includes(baseMaptitle)){
+    if (fileName == baseMaptitle+'.geojson'){
     reader.onload = function () {
         $.getJSON(reader.result, function (data) {
          var bidArray = Object.values(data.features).map((item) => item.properties.id);
@@ -68,7 +70,7 @@ function renderGeoJsonFiles(file) {
         });
     }}
 
-    if ( !(fileName.includes(baseMaptitle)) && !(fileName.includes('alignment'))){
+    if (fileName != baseMaptitle + '.geojson' && !(fileName.includes('alignment')) ){
     reader.onload = function () {
         $.getJSON(reader.result, function (data) {
          sketchMaptitle = fileName.replace('.geojson','');
@@ -83,28 +85,51 @@ function renderGeoJsonFiles(file) {
           allDrawnSketchItems[sketchMaptitle]=drawnSketchItems;
         });
     }}
+
+
 }
 
 
 
 
-function downloadProject(){
+async function downloadProject() {
 
- var zip = new JSZip();
+  try {
+
+    console.log("Starting validation...");
+
+    // ✅ Wait for both validations
+    await saveBMHandler();
+    await saveSMHandler();
 
 
- var alignment = JSON.stringify(AlignmentArray);
- zip.file("alignment.json",alignment);
+    console.log("Validations done. Creating ZIP...");
 
- for (var key in allDrawnSketchItems) {
-    zip.file(key + ".geojson", JSON.stringify(allDrawnSketchItems[key].toGeoJSON()));
-}
-     zip.generateAsync({type:"blob"})
-        .then(function(content) {
+    var zip = new JSZip();
+
+    var alignment = JSON.stringify(AlignmentArray);
+    zip.file("alignment.json", alignment);
+
+    for (var key in allDrawnSketchItems) {
+      zip.file(
+        key + ".geojson",
+        JSON.stringify(allDrawnSketchItems[key].toGeoJSON())
+      );
+    }
+
+    const content = await zip.generateAsync({ type: "blob" });
+
     saveAs(content, "InputFiles.zip");
 
-});
+    console.log("Download finished");
+
+  } catch (err) {
+
+    console.error("Download failed:", err);
+
+  }
 }
+
 
 
 async function prepareDataForQualifier(index,GenBaseMap){

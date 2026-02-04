@@ -548,176 +548,224 @@ multibuildingButton.addTo(baseMap);
 
 
 
+async function saveBMHandler() {
 
-$("#saveBM").click(function(){
+  var routeArray = [];
+  var routeIDArray = [];
 
-var routeArray=[];
-var routeIDArray=[];
-  drawnItems.eachLayer(function(blayer){
-           if (blayer.feature.properties.isRoute == "Yes"){
-              routeArray.push(blayer.feature.properties);
-            }
-        });
-     var byrouteorder = routeArray.slice(0);
-        byrouteorder.sort(function(a,b) {
-             return a.RouteSeqOrder - b.RouteSeqOrder;
-        });
+  drawnItems.eachLayer(function (blayer) {
+    if (blayer.feature.properties.isRoute == "Yes") {
+      routeArray.push(blayer.feature.properties);
+    }
+  });
 
-     for (var i in byrouteorder){
-        routeIDArray.push(byrouteorder[i].id);
-     }
+  var byrouteorder = routeArray.slice(0);
+
+  byrouteorder.sort(function (a, b) {
+    return a.RouteSeqOrder - b.RouteSeqOrder;
+  });
+
+  for (var i in byrouteorder) {
+    routeIDArray.push(byrouteorder[i].id);
+  }
+
+  baseUrl = getServiceUrl('validation');
+
+  console.log("What is being sent?", drawnItems, drawnItems.toGeoJSON());
+
+  // ✅ Wait for AJAX
+  const response = await $.ajax({
+    headers: { "X-CSRFToken": $.cookie("csrftoken") },
+    url: `${baseUrl}/validation/validate/`,
+    type: 'POST',
+    data: {
+      type: "metric",
+      metricdata: JSON.stringify(drawnItems.toGeoJSON()),
+      route: JSON.stringify(routeIDArray),
+      action: 'preview'
+    }
+  });
+
+  // ✅ Runs AFTER ajax completes
+  if (response.audit.merge.length !== 0 || response.audit.snap.length !== 0) {
+
+    await showpreviewModal(response.audit, "metric", routeIDArray);
+
+  } else {
+
+   await callApplyValidate(null, null, "metric", routeIDArray);
+
+  }
+
+}
 
 
-
- baseUrl = getServiceUrl('validation');
- console.log("What is being sent?", drawnItems, drawnItems.toGeoJSON())
-$.ajax({
-            headers: { "X-CSRFToken": $.cookie("csrftoken") },
-            url: `${baseUrl}/validation/validate/`,
-            type: 'POST',
-            data: {
-                type: "metric",
-                metricdata: JSON.stringify(drawnItems.toGeoJSON()),
-                route: JSON.stringify(routeIDArray),
-                action: 'preview'
-            },
-            success: function(response) {
-             if (response.audit.merge.length != 0 || response.audit.snap.length !=0) {
-                console.log("check if being fired merge and snap");
-                showpreviewModal(response.audit, "metric",routeIDArray);
-                }
-             else {
-               callApplyValidate (null, null,"metric",routeIDArray);
-             }
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.error('Error in metric map validation:', errorThrown);
-            }
-        });
-
+$("#saveBM").click(async function () {
+  try {
+    await saveBMHandler();
+    console.log("SaveBM finished");
+  } catch (err) {
+    console.error("Error:", err);
+  }
 });
 
 let currentAudit = null; // store latest audit globally
-function showpreviewModal(audit, type,routeArray){
- currentAudit = audit;  // save for later when submitting
-let mergetext = "";
-let snaptext = "";
 
-audit.snap.forEach((s,i) => {
-    snaptext += `
-            <div class="modal_val_row">
-                [${s.join(", ")}]
-                <input type="checkbox" class="snapCheck" data-group="${i}">
-            </div>
-        `;
-});
+function showpreviewModal(audit, type, routeArray) {
 
-audit.merge.forEach((m,i) => {
-    mergetext += `
-            <div class="modal_val_row">
-                [${m.merged_from.join(", ")}]
-                <input type="checkbox" class="mergeCheck" data-group="${i}">
-            </div>
-        `;
-});
-    var modal = document.getElementById("myModal");
-     modal.style.display = "block";
-    var merge = document.getElementById("mergeList");
-    merge.innerHTML = mergetext;
-    var snap = document.getElementById("snapList");
-    snap.innerHTML = snaptext;
+  return new Promise((resolve, reject) => {
+
+    currentAudit = audit; // save for later
+
+    let mergetext = "";
+    let snaptext = "";
+
+    audit.snap.forEach((s, i) => {
+      snaptext += `
+        <div class="modal_val_row">
+          [${s.join(", ")}]
+          <input type="checkbox" class="snapCheck" data-group="${i}">
+        </div>
+      `;
+    });
+
+    audit.merge.forEach((m, i) => {
+      mergetext += `
+        <div class="modal_val_row">
+          [${m.merged_from.join(", ")}]
+          <input type="checkbox" class="mergeCheck" data-group="${i}">
+        </div>
+      `;
+    });
+
+    const modal = document.getElementById("myModal");
+    modal.style.display = "block";
+
+    document.getElementById("mergeList").innerHTML = mergetext;
+    document.getElementById("snapList").innerHTML = snaptext;
+
     makeModalMovable("myModal");
 
     const closeBtn = document.getElementById("closeModalBtn");
+    const submitBtn = document.getElementById("modalSubmitBtn");
 
-// click close button
-closeBtn.onclick = function () {
-    modal.style.display = "none";
-};
+    // Remove old handlers (VERY important)
+    closeBtn.onclick = null;
+    submitBtn.onclick = null;
+
+    // ✅ Close = cancel
+    closeBtn.onclick = function () {
+
+      modal.style.display = "none";
+
+      reject("User closed preview modal");
+    };
 
 
-//submit button
-document.getElementById("modalSubmitBtn").onclick = function () {
+    // ✅ Submit = apply + resolve
+    submitBtn.onclick = async function () {
 
-    const selectedSnapGroups = [];
-    const selectedMergeGroups = [];
+      try {
 
-    // selected snap rows
-    document.querySelectorAll(".snapCheck:checked").forEach(chk => {
-        const idx = parseInt(chk.dataset.group, 10);
-        selectedSnapGroups.push(currentAudit.snap[idx]);  // e.g. [0,1]
+        const selectedSnapGroups = [];
+        const selectedMergeGroups = [];
+
+        document
+          .querySelectorAll(".snapCheck:checked")
+          .forEach(chk => {
+            const idx = parseInt(chk.dataset.group, 10);
+            selectedSnapGroups.push(currentAudit.snap[idx]);
+          });
+
+        document
+          .querySelectorAll(".mergeCheck:checked")
+          .forEach(chk => {
+            const idx = parseInt(chk.dataset.group, 10);
+            selectedMergeGroups.push(currentAudit.merge[idx]);
+          });
+
+        // ✅ WAIT for apply ajax
+        await callApplyValidate(
+          selectedSnapGroups,
+          selectedMergeGroups,
+          type,
+          routeArray
+        );
+
+        modal.style.display = "none";
+
+        resolve(); // ✅ continue chain
+
+      } catch (err) {
+
+        reject(err);
+
+      }
+    };
+
+  });
+}
+
+
+
+
+function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type, routeArray) {
+
+  if (type === "metric") {
+
+    return $.ajax({   // ✅ RETURN
+      headers: { "X-CSRFToken": $.cookie("csrftoken") },
+      url: `${baseUrl}/validation/validate/`,
+      type: 'POST',
+      data: {
+        type: "metric",
+        metricdata: JSON.stringify(drawnItems.toGeoJSON()),
+        route: JSON.stringify(routeArray),
+        action: 'apply',
+        merge: JSON.stringify(selectedMergeGroups),
+        snap: JSON.stringify(selectedSnapGroups)
+      }
+    }).then(function (response) {
+
+      console.log("success", response);
+
+      // ✅ Run sync code AFTER ajax
+      aftersuccessfulvalidationmetric(response.modifiedStreets);
+
+      return response; // optional, but useful
     });
 
-    // selected merge rows
-    document.querySelectorAll(".mergeCheck:checked").forEach(chk => {
-        const idx = parseInt(chk.dataset.group, 10);
-        selectedMergeGroups.push(currentAudit.merge[idx]); // whole object {new_id, merged_from}
+  }
+
+
+  if (type === "sketch") {
+
+    return $.ajax({   // ✅ RETURN
+      headers: { "X-CSRFToken": $.cookie("csrftoken") },
+      url: `${baseUrl}/validation/validate/`,
+      type: 'POST',
+      data: {
+        type: "sketch",
+        sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
+        action: 'apply',
+        route: JSON.stringify(routeArray),
+        merge: JSON.stringify(selectedMergeGroups),
+        snap: JSON.stringify(selectedSnapGroups),
+        alignment: JSON.stringify(alignmentArraySingleMap)
+      }
+    }).then(function (response) {
+
+      console.log("success", response);
+
+      aftersuccessfulvalidationsketch(response);
+
+      return response;
     });
 
-
-
-    callApplyValidate (selectedSnapGroups, selectedMergeGroups,type,routeArray);
-};
-}
-
-
-
-function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type, routeArray){
-
- if (type == "metric"){
-    $.ajax({
-                headers: { "X-CSRFToken": $.cookie("csrftoken") },
-                url: `${baseUrl}/validation/validate/`,
-                type: 'POST',
-                data: {
-                    type: "metric",
-                    metricdata: JSON.stringify(drawnItems.toGeoJSON()),
-                    route: JSON.stringify(routeArray),
-                    action: 'apply',
-                    merge: JSON.stringify(selectedMergeGroups),
-                    snap: JSON.stringify(selectedSnapGroups)
-                },
-                success: function(response) {
-                    console.log("success",response);
-                    aftersuccessfulvalidationmetric(response.modifiedStreets)
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error('Error in completeness analysis:', errorThrown);
-                }
-            });
+  }
 
 }
 
-if (type == "sketch"){
-    $.ajax({
-                headers: { "X-CSRFToken": $.cookie("csrftoken") },
-                url: `${baseUrl}/validation/validate/`,
-                type: 'POST',
-                data: {
-                    type: "sketch",
-                    sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
-                    action: 'apply',
-                    route: JSON.stringify(routeArray),
-                    merge: JSON.stringify(selectedMergeGroups),
-                    snap: JSON.stringify(selectedSnapGroups),
-                    alignment: JSON.stringify(alignmentArraySingleMap)
-                },
-                success: function(response) {
-                    console.log("success",response);
-                    aftersuccessfulvalidationsketch(response);
-
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error('Error in sketch map validation apply:', errorThrown);
-                }
-            });
-
-
-
-}
-
-
-}
 
 
 function aftersuccessfulvalidationmetric(response){
@@ -745,10 +793,6 @@ if (drawnItems != null) {
                     baseMap.removeControl(multibuildingButton);
 
                     allDrawnSketchItems[baseMaptitle] = drawnItems;
-
-
-
-
 }
 
 
@@ -1322,64 +1366,74 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
    }
    }
 
-    $('#saveSM').click(function(){
-        var sketchIDArray = [];
-        var sketchRouteArray = [];
-        drawnSketchItems.eachLayer(function(slayer){
-           if (slayer.feature.properties.isRoute == "Yes"){
-              sketchRouteArray.push(slayer.feature.properties);
-        }
-        });
-
-        var bysketchrouteorder = sketchRouteArray.slice(0);
-            bysketchrouteorder.sort(function(a,b) {
-                return a.SketchRouteSeqOrder - b.SketchRouteSeqOrder;
-            });
-
-        for (var i in bysketchrouteorder){
-            sketchIDArray.push(bysketchrouteorder[i].id);
-        }
 
 
-         baseUrl = getServiceUrl('validation');
-        $.ajax({
-            headers: { "X-CSRFToken": $.cookie("csrftoken") },
-            url: `${baseUrl}/validation/validate/`,
-            type: 'POST',
-            data: {
-                type: "sketch",
-                sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
-                alignment: JSON.stringify(alignmentArraySingleMap),
-                route: JSON.stringify(sketchIDArray),
-                action: 'preview'
-            },
-            success: function(response) {
-                console.log("successsketch",response.audit);
-                if (response.audit.merge.length != 0 || response.audit.snap.length !=0) {
-                showpreviewModal(response.audit, "sketch",sketchIDArray);
-                }
-                else{
-                     callApplyValidate (null, null,"sketch",sketchIDArray);
 
-                }
-                /*
-                 if (drawnSketchItems != null) {
-                    sketchMap.removeLayer(drawnSketchItems);
-                 }
-                drawnSketchItems = L.geoJSON(response.updated_sketch);
-                drawnSketchItems.addTo(sketchMap);
-                styleLayers();
-                hoverfunction();
 
-                BooleanEditSketchMode = false;
-                alignmentArraySingleMap = response.updated_alignment;
-                saveSketchMap();*/
+async function saveSMHandler() {
+ if (!drawnSketchItems) {
+    console.warn("drawnSketchItems not ready yet");
+    return;
+  }
+  var sketchIDArray = [];
+  var sketchRouteArray = [];
 
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.error('Error in sketchmap validation:', errorThrown);
-            }
-        });
+  drawnSketchItems.eachLayer(function (slayer) {
+    if (slayer.feature.properties.isRoute == "Yes") {
+      sketchRouteArray.push(slayer.feature.properties);
+    }
+  });
+
+  var bysketchrouteorder = sketchRouteArray.slice(0);
+
+  bysketchrouteorder.sort(function (a, b) {
+    return a.SketchRouteSeqOrder - b.SketchRouteSeqOrder;
+  });
+
+  for (var i in bysketchrouteorder) {
+    sketchIDArray.push(bysketchrouteorder[i].id);
+  }
+
+  baseUrl = getServiceUrl('validation');
+
+  // ✅ Wait for preview ajax
+  const response = await $.ajax({
+    headers: { "X-CSRFToken": $.cookie("csrftoken") },
+    url: `${baseUrl}/validation/validate/`,
+    type: 'POST',
+    data: {
+      type: "sketch",
+      sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
+      alignment: JSON.stringify(alignmentArraySingleMap),
+      route: JSON.stringify(sketchIDArray),
+      action: 'preview'
+    }
+  });
+
+  console.log("successsketch", response.audit);
+
+  if (response.audit.merge.length !== 0 || response.audit.snap.length !== 0) {
+
+    // ⚠️ If modal waits for user → must return Promise
+    await showpreviewModal(response.audit, "sketch", sketchIDArray);
+
+  } else {
+
+    // ✅ Wait for apply ajax
+    await callApplyValidate(null, null, "sketch", sketchIDArray);
+  }
+
+  return response;
+}
+
+    $('#saveSM').click(async function(){
+ try {
+    await saveSMHandler();
+    console.log("saveSM finished");
+  } catch (err) {
+    console.error("saveSM error:", err);
+  }
+
     });
 
 

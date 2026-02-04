@@ -14,7 +14,7 @@ from qualifier.qualify_RegionStarVars import relative_direction_relations
 from qualifier.qualify_Adjacency import qualify_Adjacency
 from qualifier.qualify_relativeDist import qualify_relativeDist
 from qualifier.qualify_OPRA import qualify_OPRA
-from qualifier.qualify_DE9IM import qualify_DE9IM
+from qualifier.qualify_DE9IM_linepolygon import qualify_DE9IM_linepolygon
 from qualifier.qualify_LeftRight import qualify_LeftRight
 from qualifier.qualify_street_topology import qualify_street_connectivity
 from qualifier.qualify_linearOrdering import qualify_linear_ordering
@@ -30,7 +30,7 @@ def qualifier_functions():
     #qualifier_function_list.append(qualify_rcc11)
     
     #Dimension extended 9 intersections
-    qualifier_function_list.append(qualify_DE9IM)
+    qualifier_function_list.append(qualify_DE9IM_linepolygon)
     
     # RegionStarVars
     #dir_qualifier = relative_direction_relations(8)

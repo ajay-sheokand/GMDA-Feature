@@ -40,8 +40,11 @@ def computeAngle(l1, l2):
 #computeAngle(LineString((Point(0,0),Point(0,1))), LineString((Point(0, 0),Point(1, -1))))
 
 def opraRelations(angle):
-  
-    if(angle <= 112.0 and angle > 0.0):
+    if (angle <= 25.0 and angle > 0.0):
+        return "back_of"
+    if (angle <= 68.0 and angle > 25.0):
+        return "sharp_left_of"
+    if(angle <= 112.0 and angle > 68.0):
         return "left_of"
     elif (angle <= 155.0 and angle > 112.0):
         return "half_left"
@@ -49,12 +52,15 @@ def opraRelations(angle):
         return "front_of"
     elif (angle <= 248.0 and angle > 205.0):
         return "half_right"
-    elif (angle <= 359.0 and angle > 248.0):
+    elif (angle <= 292.0 and angle > 248.0):
         return "right_of"
-    elif (angle == 0.0):
-        return "back_of" 
+    elif (angle <= 335.0 and angle > 292.0):
+        return "sharp_right_of"
+    elif (angle <= 360.0 and angle > 335):
+        return "back_of"
     else:
         return "none"
+
     
     
 def computeOPRA(l1, l2):
