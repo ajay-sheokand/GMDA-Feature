@@ -22,6 +22,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the app
 COPY . /app
 
-EXPOSE 8003
+EXPOSE 8001
 
 CMD ["bash", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8003"]
