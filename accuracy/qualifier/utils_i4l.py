@@ -299,7 +299,7 @@ def linear_referencing (poly, line):
     polyCoords = poly.exterior.coords[:]#[::-1]
     for i in range(len(polyCoords)):
         #print polyCoords[i]
-        pd = line.project(Point(polyCoords[i]), normalized =True)
+        pd = line.project(Point(polyCoords[i]))
         distances.append(pd)
    # print "distances:", distances
     minDist = min(distances)

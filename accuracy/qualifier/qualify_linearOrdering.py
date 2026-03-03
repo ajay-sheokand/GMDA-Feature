@@ -5,91 +5,180 @@ Created on Fri Feb 02 14:02:12 2018
 
 @author: s_jan001
 """
-from qualifier.utils_i4l import computeMinMaxDist, computeAdjacency,linear_referencing,get_defined_route
-from shapely.geometry import Point,LineString
+from qualifier.utils_i4l import (
+    computeMinMaxDist,
+    computeAdjacency,
+    linear_referencing,
+    get_defined_route
+)
+from shapely.ops import substring
+from shapely.geometry import mapping
 
 
-def linear_ordering (geom1, geom2):
-    #coordint = geom1.coords[:]
-    #print coordint
-    A1 = geom1['interval'][:][0]
-    A2 = geom1['interval'][:][1]
+# --------------------------------------------------
+# Allen Interval Algebra (clean implementation)
+# --------------------------------------------------
 
-    B1 = geom2['interval'][:][0]
-    B2 = geom2['interval'][:][1]
+def linear_ordering(interval_a, interval_b):
+    """
+    Compute Allen interval relation between two intervals.
+    interval format: {'interval': [start, end]}
+    """
 
-    if (A1 <= A2 and B1 <= B2 and A1 < B1 and A1 < B2 and A2 < B1 and A2 < B2):
+    A1, A2 = interval_a['interval']
+    B1, B2 = interval_b['interval']
+
+    # Normalize intervals
+    if A1 > A2:
+        A1, A2 = A2, A1
+    if B1 > B2:
+        B1, B2 = B2, B1
+
+    if A2 < B1:
         return "before"
-    elif(A1 <= A2 and B1 <= B2 and B1 < A1 and B1 < A2 and B2 < A1 and B2 < A2):
+    if A1 > B2:
         return "after"
-    elif (A1 <= A2 and B1 <= B2 and A2 == B1 and A2 < B2):
+    if A2 == B1:
         return "meets"
-    elif (A1 >= A2 and B1 >= B2 and A1 == B2 and A1 > B2):
-        return "meet_by"
-    elif (A1 <= A2 and B1 <= B2 and B1 < A2 and A2 < B2 ):
-        return "overlaps"
-    elif (A1 <= A2 and B1 <= B2 and A1 < B2 and B2 < A2):
-        return "overlapped_by"
-    elif (A1 <= A2 and B1 <= B2 and B1 < A1 and A2 < B2):
-        return "during"
-    elif (A1 <= A2 and B1 <= B2 and A1 < B1 and B2 < A2):
-        return "during_inv"
-    elif (A1 <= A2 and B1 <= B2 and A1 == B1 and B2 < A2):
-        return "starts"
-    elif (A1 <= A2 and B1 <= B2 and A1 == B1 and A2 < B2):
-        return "started_by"
-    elif (A1 <= A2 and B1 <= B2 and B1 < A2 and A2 == B2):
-        return "finishes"
-    elif (A1 <= A2 and B1 <= B2 and A1 < B2 and A2 == B2):
-        return "finished_by"
-    elif (A1 <= A2 and B1 <= B2 and A1 == B1 and A2 == B2):
+    if A1 == B2:
+        return "met_by"
+    if A1 == B1 and A2 == B2:
         return "equals"
+    if A1 == B1:
+        return "starts"
+    if A2 == B2:
+        return "finishes"
+    if A1 > B1 and A2 < B2:
+        return "during"
+    if A1 < B1 and A2 > B2:
+        return "contains"
+    if A1 < B1 < A2 < B2:
+        return "overlaps"
+    if B1 < A1 < B2 < A2:
+        return "overlapped_by"
 
-   
+    return "undefined"
+
+
+# --------------------------------------------------
+# Main qualification function
+# --------------------------------------------------
+
 def qualify_linear_ordering(data):
-    relation_set = 'linearOrdering'
+    """
+    Computes linear ordering relations between adjacent polygons
+    projected onto a defined route.
+    """
+
+    relation_set = "linearOrdering"
     arity = 2
-    polygonList = []
-    streetList = []
-    poly_Intervals_list = []
-    street_Intervals_list = []
-    intervalList=[]
-    polyIDList = []
-    streetIDList = []
-    
-    for i in range(len(data)):
-        if(data[i]['geometry'].geom_type=='Polygon'):
-            polygonList.append((i, data[i]['geometry']))
-        elif(data[i]['geometry'].geom_type=='LineString'):
-            streetList.append((i, data[i]['geometry']))
 
-    maxMinDist = computeMinMaxDist(polygonList, streetList)
-    print(maxMinDist)
+    # --------------------------------------
+    # Step 1: Extract route
+    # --------------------------------------
+
     defined_route = get_defined_route(data)
-    #print(defined_route)
-    for i in range(len(data)):
-        for sec in data:
-            if (data[i]['geometry'].geom_type=='Polygon'and sec['geometry'].geom_type=='LineString' and sec['attributes']['isRoute']=='Yes'):
-                #check that the two geoms are adjacent 
-                isAdjacent= computeAdjacency(data[i]['geometry'], defined_route,maxMinDist)
-                #print("adjacent...",isAdjacent)
-                if(isAdjacent == "Adjacent"):
-                    #project and extract intervals of adjacent landmarks
-                    intA, intB = linear_referencing(data[i]['geometry'], defined_route)
-                    interval = {"interval":[intA, intB]}
+    print("route", defined_route)
 
-                    if data[i] not in polyIDList:
-                        polyIDList.append(data[i])         
-                        #poly_Intervals_list.append((data[i], LineString([intA, intB])))
-                        #print("object intervals ....",(data[i], interval))
-                        poly_Intervals_list.append((data[i], interval))
-                        #print(poly_Intervals_list)
-                    if sec not in streetIDList:
-                        streetIDList.append(sec) 
-                        street_Intervals_list.append((sec,sec['geometry']))
-                         
-   # intervalList.extend(street_Intervals_list)
-    intervalList.extend(poly_Intervals_list)
+    if defined_route is None:
+        raise ValueError("No route defined in dataset.")
 
-    return relation_set, arity, {},[{'obj 1':intervalList[i][0]['attributes']['id'], 'obj 2':sec[0]['attributes']['id'], 'relation':linear_ordering(intervalList[i][1], sec[1])} 
-        for i in range(len(intervalList[:-1])) for sec in intervalList[i+1:] ]
+    # --------------------------------------
+    # Step 2: Separate polygons and route
+    # --------------------------------------
+
+    polygons = [
+        obj for obj in data
+        if obj['geometry'].geom_type == 'Polygon'
+    ]
+
+
+    # --------------------------------------
+    # Step 3: Compute adjacency threshold
+    # --------------------------------------
+
+    polygon_list = [(i, obj['geometry']) for i, obj in enumerate(data)
+                    if obj['geometry'].geom_type == 'Polygon']
+
+    street_list = [(i, obj['geometry']) for i, obj in enumerate(data)
+                   if obj['geometry'].geom_type == 'LineString']
+
+    max_min_dist = computeMinMaxDist(polygon_list, street_list)
+
+    # --------------------------------------
+    # Step 4: Project adjacent polygons
+    # --------------------------------------
+    projected_features = []
+    route_length = defined_route.length
+
+    for poly in polygons:
+
+        is_adjacent = computeAdjacency(
+            poly['geometry'],
+            defined_route,
+            max_min_dist
+        )
+
+        if is_adjacent == "Adjacent":
+            intA, intB = linear_referencing(
+                poly['geometry'],
+                defined_route
+            )
+
+            start = min(intA, intB)
+            end = max(intA, intB)
+
+            # Extract route segment
+            segment = substring(defined_route, start, end)
+            print(segment, "segment")
+
+            feature = {
+                "type": "Feature",
+                "geometry": mapping(segment),
+                "properties": {
+                    "id": poly['attributes']['id'],
+                    "start": start,
+                    "end": end,
+                    "length": end - start
+                }
+            }
+
+            projected_features.append(feature)
+
+    # --------------------------------------
+    # Step 5: Pairwise interval relations
+    # --------------------------------------
+    projected_intervals = [
+        {
+            "id": f["properties"]["id"],
+            "interval": [
+                f["properties"]["start"],
+                f["properties"]["end"]
+            ]
+        }
+        for f in projected_features
+    ]
+
+    results = []
+
+    for i in range(len(projected_intervals)):
+        for j in range(i + 1, len(projected_intervals)):
+
+            A = projected_intervals[i]
+            B = projected_intervals[j]
+
+            relation = linear_ordering(A, B)
+
+            results.append({
+                "obj 1": A["id"],
+                "obj 2": B["id"],
+                "relation": relation
+            })
+    visualization_data = {
+        "route_length": route_length,
+        "interval_features": projected_features
+    }
+
+    print(visualization_data, "check here for visual")
+
+    return relation_set, arity, visualization_data, results

@@ -26,6 +26,8 @@ var tempallDrawnSketchItems;
 var streetCountBeforeGen = 0;
 var lmCountBeforeGen = 0;
 var hostName
+var intervalLookup = {};
+var intervalLookupSM = {};
 
 
 
@@ -200,10 +202,28 @@ SMGeoJsonData = ProcSketchMap.toGeoJSON();
 
 
     return {metricdata: MMGeoJsonDataFiltered, sketchdata : SMGeoJsonDataFiltered}
+}
 
+function removeMissingFeatures(featureCollection) {
 
+    return {
+        type: "FeatureCollection",
+        features: featureCollection.features.filter(feature => {
 
+            const props = feature.properties;
 
+            // remove unaligned
+            if (props.aligned === false) return false;
+
+            // remove explicitly missing
+            if (props.missing === true) return false;
+
+            // remove grouped raw elements
+            if (props.group === true) return false;
+
+            return true;
+        })
+    };
 }
 
 
@@ -212,21 +232,66 @@ var GenHoverArray = [];
 function Genhoverfunction(GenBaseMap){
     drawnSketchItems.eachLayer(function(slayer){
     slayer.on('mouseover', function() {
-    if(slayer.feature.properties.group != true){
-    GenHoverArray.push(slayer.feature.properties.id);
-    GenchangestyleOnHover(GenHoverArray,slayer.feature.properties.group,GenBaseMap);
-    }
-    else
-    {
-    GenHoverArray.push(slayer.feature.properties.groupID);
-    GenchangestyleOnHover(GenHoverArray,slayer.feature.properties.group,GenBaseMap);
-    }
+       let hoveredID;
+     hoveredID = slayer.feature.properties.id;
+
+       if (sketchMap.hasLayer(linearOrdering)) {
+                const projectionSM = intervalLookupSM[hoveredID];
+                console.log("workstillheresketch", projectionSM);
+                if (projectionSM) {
+                    projectionLayerSM.clearLayers();
+                    projectionLayerSM.addData(projectionSM);
+                    projectionLayerSM.addTo(sketchMap);
+                }
+            }
+        if(slayer.feature.properties.group != true){
+        GenHoverArray.push(slayer.feature.properties.id);
+        GenchangestyleOnHover(GenHoverArray,slayer.feature.properties.group,GenBaseMap);
+        }
+        else
+        {
+        GenHoverArray.push(slayer.feature.properties.groupID);
+        GenchangestyleOnHover(GenHoverArray,slayer.feature.properties.group,GenBaseMap);
+        }
     });
     slayer.on('mouseout', function() {
     GenHoverArray=[];
     GenStyleLayers(GenBaseMap);
+    projectionLayerSM.clearLayers();
     });
     });
+
+    GenBaseMap.eachLayer(function (glayer){
+    glayer.on('mouseover', function(){
+     let hoveredID;
+     hoveredID = glayer.feature.properties.id;
+
+       if (baseMap.hasLayer(linearOrdering)) {
+                const projection = intervalLookup[hoveredID];
+                console.log("workstillhere", projection);
+                if (projection) {
+                    projectionLayer.clearLayers();
+                    projectionLayer.addData(projection);
+                    projectionLayer.addTo(baseMap);
+                }
+            }
+    });
+    glayer.on('mouseout', function() {
+            projectionLayer.clearLayers();
+
+        });
+
+
+    });
+
+
+
+
+
+
+
+
+
     }
 
 function GenchangestyleOnHover(Array,BooleanGroup,GenBaseMap){
@@ -433,8 +498,10 @@ try {
       ? analyzeCompleteness(fixedIndex, currentsketchMap, processeddata.sketchdata, processeddata.metricdata)
       : Promise.resolve({});
 
+
+
     const qualitativePromise = acc
-      ? analyzeQualitative(fixedIndex, currentsketchMap, processeddata.sketchdata, processeddata.metricdata)
+      ? analyzeQualitative(fixedIndex, currentsketchMap, removeMissingFeatures(processeddata.sketchdata), removeMissingFeatures(processeddata.metricdata))
       : Promise.resolve({});
 
     const [completenessResponse, qualitativeResponse] = await Promise.all([
@@ -647,8 +714,20 @@ async function analyzeCompleteness(index, currentsketchMap, processedSketch, pro
     });
 }
 
-async function analyzeQualitative(index, currentsketchMap, processedSketch, processedMetric) {
+const projectionLayer = L.geoJSON(null, {
+  style: {
+    color: "#0ced10",
+    weight: 8
+  }
+});
 
+const projectionLayerSM = L.geoJSON(null, {
+  style: {
+    color: "#0ced10",
+    weight: 8
+  }
+});
+async function analyzeQualitative(index, currentsketchMap, processedSketch, processedMetric) {
     return new Promise((resolve, reject) => {
         // Use service URL builder function to build the base URL
         baseUrl = getServiceUrl('qualitativerelations');
@@ -663,7 +742,19 @@ async function analyzeQualitative(index, currentsketchMap, processedSketch, proc
                 metricdata: JSON.stringify(processedMetric)
             },
             success: function(response) {
-                console.log('Qualitative analysis result:', response);
+                console.log('Qualitative analysis result:', response.mmqcn.constraint_collection[5].modifiers);
+                console.log('Qualitative analysis result:', response.smqcn.constraint_collection[5].modifiers);
+                const linearOrderingEntry = response.mmqcn.constraint_collection.find(c => c.relation_set === "linearOrdering");
+                const intervalFeatures = linearOrderingEntry?.modifiers?.interval_features || [];
+                intervalFeatures.forEach(f => {
+                    intervalLookup[f.properties.id] = f;
+                });
+
+                const linearOrderingEntrySM = response.smqcn.constraint_collection.find(c => c.relation_set === "linearOrdering");
+                const intervalFeaturesSM = linearOrderingEntrySM?.modifiers?.interval_features || [];
+                intervalFeaturesSM.forEach(f => {
+                    intervalLookupSM[f.properties.id] = f;
+                });
                 qualresponseArray[currentsketchMap] = response.qualitative_results;
                 qualRelationsBaseMap[index] = response.mmqcn;
                 qualRelationsSketchMap[index] = response.smqcn;
@@ -741,7 +832,7 @@ generalizedmap.eachLayer(function(glayer){
 function setResults_in_output_div(index,resp){
        cells[index][0].innerHTML = resp.sketchMapID;
        cells[index][2].innerHTML = genResultArray[resp.sketchMapID].overallGen;
-       cells[index][1].innerHTML = (resp.totalSketchedStreets+genResultArray[resp.sketchMapID].abstExiStreets)/(resp.toal_mm_streets +genResultArray[resp.sketchMapID].abstExiStreets)*100 + "   " + (resp.totalSketchedLandmarks+ genResultArray[resp.sketchMapID].absExiBuildings)/(resp.total_mm_landmarks+ genResultArray[resp.sketchMapID].absExiBuildings)*100;
+       cells[index][1].innerHTML = ((resp.totalSketchedStreets+genResultArray[resp.sketchMapID].abstExiStreets)/(resp.toal_mm_streets +genResultArray[resp.sketchMapID].abstExiStreets)*100).toFixed(2) + "   " + ((resp.totalSketchedLandmarks+ genResultArray[resp.sketchMapID].absExiBuildings)/(resp.total_mm_landmarks+ genResultArray[resp.sketchMapID].absExiBuildings)*100).toFixed(2);
        cells[index][3].innerHTML = resp.precision + "    " + resp.recall;
 
 }
@@ -790,7 +881,7 @@ for (var i in Object.keys(responseArray)){
 }
 
 //GENERALIZATION
-for (var i in Object.keys(genResultArray)){
+/*for (var i in Object.keys(genResultArray)){
         var sketchmap = Object.keys(genResultArray)[i];
         GeneralizationSummaryCSV.push(sketchmap);
         GeneralizationSummaryCSV.push("Generalization");
@@ -811,7 +902,7 @@ for (var i in Object.keys(genResultArray)){
         GeneralizationSummaryCSV.push("Overall Generalization" + ',' + genResultArray[sketchmap].overallGen);
         GeneralizationSummaryCSV.push("    ");
         GeneralizationSummaryCSV.push("   ");
-}
+}*/
 
 
 //QUALITATIVE ACCURACY
@@ -912,22 +1003,63 @@ GeneralizationCSV.push("Sketch Map , BaseId , SketchId , Generalization Type");
 
 
 
-    var rows = document.querySelectorAll("table tr");
-    for (var i = 0; i < rows.length; i++) {
-        var row = [], cols = rows[i].querySelectorAll("td, th");
-        for (var j = 0; j < cols.length; j++)
-            row.push(cols[j].innerText);
-        OverallSummaryCsv.push(row.join(","));
-    }
+  OverallSummaryCsv.push(
+    "Base Map,Sketch Maps,Generalization,Completeness_Streets(%),Completeness_Buildings(%),QualitativeAccuracy_Recall,QualitativeAccuracy_Precision,Generalization_OmissionMerge,Generalization_OmissionMerge(many-many),Generalization_Street_AbstractionToShowExistence,Generalization_JuctionMerge,Generalization_RoundaboutCollapse,Generalization_Amalgamation,Generalization_Collapse,Generalization_Building_AbstractionToShowExistence,QualitativeAccuracy_BuildingTopology(RCC8),QualitativeAccuracy_StreetBuildingTopology(DE9IM),QualitativeAccuracy_StreetsOrientation(OPRA),QualitativeAccuracy_StreetsConnectedness,QualitativeAccuracy_BuildingRoute_LeftRight,QualitativeAccuracy_BuildingRoute_LinearOrdering"
+);
+
+for (var i in Object.keys(genResultArray)) {
 
 
+    var sketchmap = Object.keys(genResultArray)[i];
+    console.log("CHEEEEK", sketchmap);
+    var comp = responseArray[sketchmap];
+    var qa = qualresponseArray[sketchmap];
+
+    // Safety checks
+    if (!comp) continue;
+
+    var streetCompleteness =
+        (comp.totalSketchedStreets + genResultArray[sketchmap].abstExiStreets) /
+        (comp.toal_mm_streets + genResultArray[sketchmap].abstExiStreets) * 100;
+
+    var landmarkCompleteness =
+        (comp.totalSketchedLandmarks + genResultArray[sketchmap].absExiBuildings) /
+        (comp.total_mm_landmarks + genResultArray[sketchmap].absExiBuildings) * 100;
+
+var recall = qa ? qa.recall : "";
+var precision = qa ? qa.precision : "";
+
+    OverallSummaryCsv.push(
+        baseMaptitle + "," +
+        sketchmap + "," +
+        genResultArray[sketchmap].overallGen + "," +
+        streetCompleteness.toFixed(2) + "," +
+        landmarkCompleteness.toFixed(2) + "," +
+        recall + "," +
+        precision+ "," +
+        genResultArray[sketchmap].om + "," +
+        genResultArray[sketchmap].om_multi + "," +
+        genResultArray[sketchmap].abstExiStreets + "," +
+        genResultArray[sketchmap].junctionmerge+ "," +
+        genResultArray[sketchmap].roundabout +','+
+        genResultArray[sketchmap].amalgamation + ','+
+        genResultArray[sketchmap].collapse+ ','+
+        genResultArray[sketchmap].absExiBuildings + "," +
+        qualresponseArray[sketchmap].correctnessAccuracy_rcc11  + "," +
+        qualresponseArray[sketchmap].correctnessAccuracy_DE9IM + "," +
+        qualresponseArray[sketchmap].correctnessAccuracy_opra + "," +
+        qualresponseArray[sketchmap].correctnessAccuracy_streetTop+ "," +
+        qualresponseArray[sketchmap].correctnessAccuracy_LR +','+
+       qualresponseArray[sketchmap].correctnessAccuracy_LO
+    );
+}
 
 
     var zip = new JSZip();
-        zip.file("CompletenessSummary.csv", CompletenessSummaryCSV.join("\n"));
-        zip.file("GeneralizationSummary.csv", GeneralizationSummaryCSV.join("\n"));
+        zip.file("CompletenessDetailedOutput.csv", CompletenessSummaryCSV.join("\n"));
+        /*zip.file("GeneralizationSummary.csv", GeneralizationSummaryCSV.join("\n"));*/
         zip.file("ResultSummary.csv", OverallSummaryCsv.join("\n"));
-        zip.file("GenDetailedOutput.csv",GeneralizationCSV.join("\n"));
+        zip.file("GeneralizationDetailedOutput.csv",GeneralizationCSV.join("\n"));
 
 if (Object.keys(qualresponseArray)!=0){
         for (var i = 0;i<numbOfSM-3;i++){
@@ -935,7 +1067,7 @@ if (Object.keys(qualresponseArray)!=0){
                 zip.folder("QualitativeRelations").file(Object.keys(qualresponseArray)[i] + ".csv",QualRelationsSketchMapCSV[i].join("\n"));
         }
 
-                zip.file("QASummary.csv", QASummaryCSV.join("\n"));
+                zip.file("QADetailedOutput.csv", QASummaryCSV.join("\n"));
 }
         for (var i in Object.keys(allGenBaseMap)){
         zip.folder("GeneralizedBaseMap").file(Object.keys(allGenBaseMap)[i]+".geojson", JSON.stringify(allGenBaseMap[Object.keys(allGenBaseMap)[i]].toGeoJSON()));

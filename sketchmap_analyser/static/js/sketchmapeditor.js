@@ -13,6 +13,8 @@ var id=-1;
 var bid=-1;
 var layerGroupBasemap = new L.LayerGroup();
 var layerGroupBasemapGen = new L.LayerGroup();
+var linearOrderingActive = false;
+var linearOrdering = new L.LayerGroup();
 var baseMap;
 var baseMaptitle;
 var drawnItems;
@@ -121,7 +123,8 @@ function renderImageFile(file, location) {
 
         var layerControl = new L.Control.Layers(null, {
             'Base Map': layerGroupBasemap,
-            'Generalized Map': layerGroupBasemapGen
+            'Generalized Map': layerGroupBasemapGen,
+            'Linear Ordering' : linearOrdering
         }).addTo(baseMap);
         labelButton.addTo(baseMap);
         missingFeatureButton.addTo(baseMap);
@@ -132,6 +135,11 @@ $( "#loaded" ).prop( "checked", true );
 $( "#loaded" ).prop( "disabled", false );
 
 }
+
+
+
+
+
 
 function isPlainPolyline(layer) {
   return (layer instanceof L.Polyline) && !(layer instanceof L.Polygon);
@@ -906,6 +914,9 @@ drawnItems.eachLayer(function(blayer){
         SMLoaded.addTo(sketchMap);
         sketchMap.fitBounds(bounds);
         enableDefaultArrows(sketchMap);
+        var layerControl = new L.Control.Layers(null, {
+            'Linear Ordering' : linearOrdering
+        }).addTo(sketchMap);
         sketchMaptitle = $(e.target).parent().attr("data-original-title");
             labelButtonSketchMap.addTo(sketchMap);
         if(allDrawnSketchItems.hasOwnProperty(sketchMaptitle)){

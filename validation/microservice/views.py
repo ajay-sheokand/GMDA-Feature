@@ -235,8 +235,8 @@ def combine_by_basealign(alignment):
         merged[merged_key] = {
             'BaseAlign': {'0': list(basealign_val)},
             'SketchAlign': {},
-            'genType': items[0]['genType'],
-            'degreeOfGeneralization': items[0]['degreeOfGeneralization']
+            'genType': items[0].get("genType"),
+            'degreeOfGeneralization': items[0].get('degreeOfGeneralization')
         }
 
         # Combine SketchAlign entries
@@ -596,13 +596,13 @@ def validate(request):
             approved_snap_json = json.loads(approved_snap_pairs) if approved_snap_pairs else []
             approved_merge_json = json.loads(approved_merge_pairs) if approved_merge_pairs else []
 
-            snapped_lines = apply_approved_snaps(line_gdf, approved_snap_json, id_col="id", inplace=False)
+            snapped_lines = apply_approved_snaps(line_gdf, approved_snap_json, id_col="sid", inplace=False)
 
             approved_merge_json = approved_merge_json or []
             merge_groups = [m["merged_from"] for m in approved_merge_json]
-            merged_lines = apply_approved_merges(snapped_lines, merge_groups, id_col="id", inplace=False)
+            merged_lines = apply_approved_merges(snapped_lines, merge_groups, id_col="sid", inplace=False)
             print ("inside apply", route_ids)
-            routecorrected = validateRoute(merged_lines, route_ids, id_col="id", inplace=False)
+            routecorrected = validateRoute(merged_lines, route_ids, id_col="sid", inplace=False)
 
             edited_lines_geojson = json.loads(routecorrected.to_json())
             edited_line_features = edited_lines_geojson["features"]
@@ -617,10 +617,18 @@ def validate(request):
 
             corrected_alignment = combine_by_basealign(alignment)
             remapped_alignment = remap_alignment_ids(corrected_alignment, id_mapping)
-            return HttpResponse(json.dumps({
+
+            response_data = {
                 "modifiedStreets": final_geojson,
                 "updated_alignment": remapped_alignment
-            }), content_type="application/json")
+            }
+
+            print(response_data)
+
+            return HttpResponse(
+                json.dumps(to_builtin_types(response_data)),
+                content_type="application/json"
+            )
 
 
 
