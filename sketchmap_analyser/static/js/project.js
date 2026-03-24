@@ -28,6 +28,7 @@ var lmCountBeforeGen = 0;
 var hostName
 var intervalLookup = {};
 var intervalLookupSM = {};
+var download = false
 
 
 
@@ -95,7 +96,7 @@ function renderGeoJsonFiles(file) {
 
 
 async function downloadProject() {
-
+download = true;
   try {
 
     console.log("Starting validation...");
