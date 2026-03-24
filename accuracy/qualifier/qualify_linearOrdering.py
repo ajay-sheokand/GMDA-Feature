@@ -78,7 +78,7 @@ def qualify_linear_ordering(data):
     # --------------------------------------
 
     defined_route = get_defined_route(data)
-    print("route", defined_route)
+
 
     if defined_route is None:
         raise ValueError("No route defined in dataset.")
@@ -130,7 +130,6 @@ def qualify_linear_ordering(data):
 
             # Extract route segment
             segment = substring(defined_route, start, end)
-            print(segment, "segment")
 
             feature = {
                 "type": "Feature",
@@ -179,6 +178,5 @@ def qualify_linear_ordering(data):
         "interval_features": projected_features
     }
 
-    print(visualization_data, "check here for visual")
 
     return relation_set, arity, visualization_data, results

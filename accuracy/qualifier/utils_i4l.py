@@ -153,7 +153,6 @@ def left_or_right(polyline: LineString, other: LineString):
         px, py = (ox - x1), (oy - y1)
 
         c = _cross(sx, sy, px, py)
-        print ("value of cross product", c, "absolute", abs(c))
 
         if abs(c) <= EPS:
             pass  # ignore
@@ -191,7 +190,6 @@ def computeMinMaxDist(polygonList, StreetList):
     #print("mindistance----",minDistList)
     maxMinDist = max(minDistList)
 
-    print("maxdistance....:",maxMinDist)
     return maxMinDist+5
 
 
@@ -276,20 +274,38 @@ Returns defined route
 """
 
 def get_defined_route(data):
+
     route_segments = []
+
     for i in range(len(data)):
-        if (data[i]['geometry'].geom_type == 'LineString' and data[i]['attributes']['isRoute'] == 'Yes'):
+        if (
+            data[i]['geometry'].geom_type == 'LineString'
+            and data[i]['attributes']['isRoute'] == 'Yes'
+        ):
             route_segments.append(data[i]['geometry'])
 
-    # combine them into a multi-linestring
-    multi_line = geometry.MultiLineString(route_segments)
-    route = ops.unary_union(ops.linemerge(multi_line))
-    if route.geom_type =="MultiString":
-        multi_line = geometry.MultiLineString(route)
-        route1 = ops.unary_union(ops.linemerge(multi_line))
-        return route1
-    else:
-        return route
+    if not route_segments:
+        return None
+
+    # merge segments
+    merged = ops.linemerge(route_segments)
+
+    # if already LineString → done
+    if merged.geom_type == "LineString":
+        return merged
+
+    # if MultiLineString → force single line
+    if merged.geom_type == "MultiLineString":
+
+        coords = []
+
+        for g in merged.geoms:
+            coords.extend(list(g.coords))
+
+        return LineString(coords)
+
+    # fallback
+    return merged
 
 ######################################################### linear referencing for ordering and ####################
 

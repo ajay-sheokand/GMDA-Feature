@@ -234,10 +234,9 @@ function Genhoverfunction(GenBaseMap){
     slayer.on('mouseover', function() {
        let hoveredID;
      hoveredID = slayer.feature.properties.id;
-
+     console.log(sketchMaptitle, intervalLookupSM,hoveredID);
        if (sketchMap.hasLayer(linearOrdering)) {
-                const projectionSM = intervalLookupSM[hoveredID];
-                console.log("workstillheresketch", projectionSM);
+                const projectionSM = intervalLookupSM[sketchMaptitle]?.[hoveredID];
                 if (projectionSM) {
                     projectionLayerSM.clearLayers();
                     projectionLayerSM.addData(projectionSM);
@@ -267,8 +266,7 @@ function Genhoverfunction(GenBaseMap){
      hoveredID = glayer.feature.properties.id;
 
        if (baseMap.hasLayer(linearOrdering)) {
-                const projection = intervalLookup[hoveredID];
-                console.log("workstillhere", projection);
+                const projection = intervalLookup[sketchMaptitle]?.[hoveredID];
                 if (projection) {
                     projectionLayer.clearLayers();
                     projectionLayer.addData(projection);
@@ -392,7 +390,7 @@ if (BooleanEditSketchMode){
         streetCountBeforeGen = 0;
         lmCountBeforeGen = 0;
         currentsketchMap = Object.keys(tempallDrawnSketchItems)[i];
-        console.log("currentsketchMap", currentsketchMap);
+
 
         drawnItems.eachLayer(function(blayer){
             if (blayer.feature.properties.group){
@@ -461,7 +459,6 @@ if (BooleanEditSketchMode){
 
 // Construct the base URL dynamically
 baseUrl = getServiceUrl('generalizations');
-console.log("what is being sent to generalize: ",drawnItems, drawnItems.toGeoJSON());
 
  $('#loading-spinner').show();
 
@@ -742,18 +739,24 @@ async function analyzeQualitative(index, currentsketchMap, processedSketch, proc
                 metricdata: JSON.stringify(processedMetric)
             },
             success: function(response) {
-                console.log('Qualitative analysis result:', response.mmqcn.constraint_collection[5].modifiers);
-                console.log('Qualitative analysis result:', response.smqcn.constraint_collection[5].modifiers);
                 const linearOrderingEntry = response.mmqcn.constraint_collection.find(c => c.relation_set === "linearOrdering");
                 const intervalFeatures = linearOrderingEntry?.modifiers?.interval_features || [];
+
+                if (!intervalLookup[currentsketchMap]) {
+                        intervalLookup[currentsketchMap] = {};
+                }
+                if (!intervalLookupSM[currentsketchMap]) {
+                        intervalLookupSM[currentsketchMap] = {};
+                }
+
                 intervalFeatures.forEach(f => {
-                    intervalLookup[f.properties.id] = f;
+                    intervalLookup[currentsketchMap][f.properties.id] = f;
                 });
 
                 const linearOrderingEntrySM = response.smqcn.constraint_collection.find(c => c.relation_set === "linearOrdering");
                 const intervalFeaturesSM = linearOrderingEntrySM?.modifiers?.interval_features || [];
                 intervalFeaturesSM.forEach(f => {
-                    intervalLookupSM[f.properties.id] = f;
+                    intervalLookupSM[currentsketchMap][f.properties.id] = f;
                 });
                 qualresponseArray[currentsketchMap] = response.qualitative_results;
                 qualRelationsBaseMap[index] = response.mmqcn;
@@ -987,6 +990,8 @@ GeneralizationCSV.push("Sketch Map , BaseId , SketchId , Generalization Type");
 
                 TemporaryAlignmentArray[sketchmap][key].genType = "NOT DEFINED";
           }
+
+        console.log(TemporaryAlignmentArray);
         GeneralizationCSV.push(sketchmap + ',' + ((TemporaryAlignmentArray[sketchmap][key].BaseAlign[0]).toString()).replaceAll(",", " ") + ',' + ((TemporaryAlignmentArray[sketchmap][key].SketchAlign[0]).toString()).replaceAll(",", " ") + ',' + ((TemporaryAlignmentArray[sketchmap][key].genType).toString()) ) ;
         }
    // do something with key or value

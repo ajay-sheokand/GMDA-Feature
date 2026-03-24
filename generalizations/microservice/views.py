@@ -13,6 +13,7 @@ from geojson import Feature, Point, FeatureCollection, Polygon, dump
 from django.views.decorators.csrf import ensure_csrf_cookie
 from shapely.ops import unary_union,polygonize, substring
 from copy import deepcopy
+import pandas as pd
 
 
 
@@ -25,7 +26,7 @@ def requestFME(request):
     sketchdata = request.POST.get('sketchdata')
     aligndata = request.POST.get('aligndata')
     sketchname = request.POST.get('sketchmapName')
-    print ('sketchmap', sketchname,basedata)
+    print ('sketchmap', sketchname)
 
     USER_PROJ_DIR = "generalizedMap"
 
@@ -76,7 +77,6 @@ def spatial_transformation():
     data_ip = json.load(base)
     data_ips = json.load(sketch)
 
-    print("rawdata", data_ip)
 
 
 
@@ -134,7 +134,6 @@ def spatial_transformation():
 
                 if data[k][key]== "Abstraction to show existence - street stub":
                     a2e_ss_id = data[k]['BaseAlign']['0']
-                    print (a2e_ss_id, "check here for street stub")
                     a2e_ss_ids.append(a2e_ss_id)
                     a2e_ss_id1 = data[k]['SketchAlign']['0']
                     s_a2e_ss_ids.append(a2e_ss_id1)
@@ -251,9 +250,6 @@ def spatial_transformation():
 
     loop_ids = result["loop_ids"]
     st_ids = result["straight_ids"]
-    print("Curved IDs:", result["curved_ids"])
-    print("Loop IDs:", result["loop_ids"])
-    print("Straight IDs:", result["straight_ids"])
 
     # breakpoint()
 
@@ -341,11 +337,7 @@ def spatial_transformation():
                 del connected_streets_st[index]
                 del st_ids[index]
 
-        #Print the results
-        print("Connected Streets IDs:", connected_streets)
-        print("Connected Streets points:", connected_street_points)
-        print("Connected Streets straight IDs:", connected_streets_st)
-        print("Connected Streets straight points:", st_points)
+
 
         # Flatten connected_streets and connected_streets_st for easier comparison
         flattened_connected_streets = [item for sublist in connected_streets for item in sublist]
@@ -487,7 +479,6 @@ def spatial_transformation():
 
 #street stub base map
     for x in a2e_ss_ids:
-       print (x, "inga varutha")
        line_group = []
        filtered_geom = [geo['geometry']['coordinates'] for geo in data_ip['features'] if geo['properties']['id'] in x]
        filtered_geomtype = [geo['geometry']['type'] for geo in data_ip['features'] if geo['properties']['id'] in x]
@@ -498,7 +489,6 @@ def spatial_transformation():
                line_group.append(each_line)
            a2e_ssl_res.append(line_group)
            a2e_ss_ids_l.append(filtered_id)
-           print ("inga", a2e_ss_ids)
            #print("line",a2e_ids_l)
 
 
@@ -512,7 +502,6 @@ def spatial_transformation():
                     if bool(check):
                         corresponding_base_ids.append(data[k]['BaseAlign']['0'])
 
-        print("corresponding_base", corresponding_base_ids)
         return corresponding_base_ids
 
 
@@ -536,7 +525,6 @@ def spatial_transformation():
         if feat["properties"]["sid"] in flat_ss_sids
     }
 
-    print("check if", sketch_ss_geom_by_sid, s_a2e_ss_ids)
 
     for feat in data_ips["features"]:
         sketch_sid = feat["properties"]["sid"]
@@ -550,16 +538,12 @@ def spatial_transformation():
             if sketch_geom.intersects(sketch_ss_geom):
                 sketch_ids_intersect_mapping[sketch_ss_sid].append(sketch_sid)
 
-    print ("intersecting", sketch_ids_intersect_mapping)
     sketch_to_base_mapping = {}
 
     for sketch_sid, intersecting_sids in sketch_ids_intersect_mapping.items():
-        print("what", intersecting_sids, sketch_sid)
         base_ids = get_corresponding_base_ids(intersecting_sids)
-        print("corres", base_ids)
         sketch_to_base_mapping[sketch_sid] = base_ids
 
-    print("check check", sketch_to_base_mapping)
 
 
 
@@ -749,8 +733,6 @@ def spatial_transformation():
 
     if a2e_ssl_res :
         for x, ids, sids in zip(a2e_ssl_res,a2e_ss_ids,s_a2e_ss_ids):
-
-            print("street stub here", x, sids, sketch_to_base_mapping)
             gen_type = "Abstraction to show existence - street stub"
             if x[0].geom_type == "LineString":
                 line = x[0]
@@ -790,11 +772,6 @@ def spatial_transformation():
                         )
                     )
 
-                    print("assigned", assigned_sketch, intersecting_base_ids)
-
-
-
-
     if a2e_p_res and a2e_p_res[0]:
         for x, ids, sids in zip(a2e_p_res, a2e_ids_p, s_a2e_ids_p):
             if len(x) == 0:
@@ -822,7 +799,6 @@ def spatial_transformation():
             if f["properties"]["id"] == ids
         )
 
-        print("check how is original feature", original_feature)
 
         # copy geometry without modification
         features.append({
@@ -836,7 +812,6 @@ def spatial_transformation():
             }
         })
 
-        print("check polygon here", features)
 
     # Roundabout Collapse ...........................................................
     sketch = open(Inputsketchpath)
@@ -927,7 +902,6 @@ def spatial_transformation():
     # Only proceed if connected
     if connection_status == 'connected':
         rac_l_res = find_features(data_ip, loop_ids, features)
-        print("check ids of missing rac",rac_l_res,loop_ids)
 
         for group in rac_l_res:
             # Create a MultiLineString from the current group
@@ -937,7 +911,6 @@ def spatial_transformation():
             centroid1 = multi_line.centroid
             centroids.append(centroid1)
 
-        print("checkcent",centroids)
 
         new_line = []
 
@@ -1355,12 +1328,14 @@ def spatial_transformation():
     def get_connected_segments(m_ids):
         otherthanmissing = [geo for geo in data_ip['features'] if
                             geo['properties']['id'] not in m_ids and geo['geometry']['type'] == 'LineString']
+        print("other", otherthanmissing)
         missing = [geo for geo in data_ip['features'] if geo['properties']['id'] in m_ids]
         if missing:
             otherthanmissingGDF = gpd.GeoDataFrame.from_features(otherthanmissing)
             missingGDF = gpd.GeoDataFrame.from_features(missing)
             result = gpd.overlay(otherthanmissingGDF, missingGDF, how='intersection', keep_geom_type=False)
-            return result.iloc[:, 0]
+            pd.set_option("display.max_columns", None)
+            return result["id_1"]
 
     def get_corresponding_sketch_ids(connectedsegments):
         for k in data:
@@ -1377,6 +1352,7 @@ def spatial_transformation():
         sketch_ids = [item for sublist in sketch_ids for item in sublist]
         sketchsegments = [geo for geo in data_ips['features'] if geo['properties']['sid'] in sketch_ids]
         sketchGDF = gpd.GeoDataFrame.from_features(sketchsegments)
+        print(sketchGDF,sketch_ids)
         sketchGDF['geom'] = sketchGDF.geometry
         # Self join
         sj = gpd.sjoin(sketchGDF, sketchGDF,
@@ -1429,7 +1405,6 @@ def spatial_transformation():
             id_counts = overlay['id_1'].value_counts()
             global missingstreet
             missingstreet = id_counts[id_counts >= 4].index
-            print("alsooooo here",missingstreet)
             if  len(missingstreet) != 0:
                 missingstreetsGeom = [geo for geo in data_ip['features'] if geo['properties']['id'] in missingstreet]
                 centroidMissingstreetsGeom = geometry.LineString(missingstreetsGeom[0]['geometry']['coordinates']).centroid
@@ -1462,6 +1437,7 @@ def spatial_transformation():
 
     junctionmergeCount = 0
     connectedsegments = get_connected_segments(m_ids)
+    print("connected", connectedsegments)
     if connectedsegments is not None and not connectedsegments.empty:
         correspondingsketchsegments = get_corresponding_sketch_ids(connectedsegments)
         junctionmerge_sketch_ids = detectJunctionMerge(correspondingsketchsegments)
@@ -1550,7 +1526,6 @@ def spatial_transformation():
     for x, ids, sids in zip(s_a2e_l_res, a2e_ids, s_a2e_ids_l):
         multi_line = geometry.MultiLineString(x)
         if is_connected(multi_line):
-            print("it should reach here", ids, sids)
             merged_line = ops.linemerge(multi_line)
             g1_a2e = geometry.shape(merged_line)
             gen_type = "Multi-MultiOmissionMerge"
@@ -1587,7 +1562,6 @@ def spatial_transformation():
 
         features.append(Feature(geometry=geometry.mapping(g1_a2e), properties=merged_properties))
 
-        print("cheeeeeekkk", features)
 
 
 
@@ -1608,14 +1582,12 @@ def spatial_transformation():
 
     for x, prop in zip(mis_res_l, mis_ids_l_prop):
         global missingstreet
-        print("check if it prints here",loop_ids,prop.get('id'),missingstreet)
         temp_loop_id=[]
         if loop_ids is not None and len(loop_ids)!=0:
             temp_loop_id = loop_ids[0]
         temp_loop_ids = set(to_iterable(temp_loop_id))
         missingstreet_ids = set(to_iterable(missingstreet))
         if prop.get('id') not in temp_loop_ids and prop.get('id') not in missingstreet_ids:
-            print("also here", prop.get('id'))
             line = shapely.geometry.LineString(x)
             wkt_string = line.wkt
             features.append(Feature(geometry=shapely.wkt.loads(wkt_string),
@@ -1628,7 +1600,6 @@ def spatial_transformation():
             if f["properties"]["id"] == prop['id']
         )
 
-        print("check how is original feature", original_feature)
 
         # copy geometry without modification
         features.append({

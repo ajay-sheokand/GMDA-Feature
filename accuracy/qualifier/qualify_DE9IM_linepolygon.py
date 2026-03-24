@@ -57,15 +57,14 @@ def topological_relation_line_polygon(line, polygon, tol=1e-3):
     p1, p2 = nearest_points(line, polygon)
     shortest_distance = p1.distance(p2)
 
-    print(distance, "distance here", shortest_distance )
     dists = vertex_distances(polygon, line)
-    print(dists)
+
 
     lr_relation = left_or_right(line,polygon.exterior)
-    print(lr_relation)
+
 
     matrix = line.relate(polygon)
-    print(matrix)
+
 
     # 1. Disjoint (no contact even with tolerance)
     if (line.relate_pattern(polygon, "FF*FF****") and distance <= tol) or (line.relate_pattern(polygon, "T*T******") and lr_relation!= 'crosses') :
@@ -109,7 +108,7 @@ def qualify_DE9IM_linepolygon(data):
                 id1 = data[i]['attributes']['id']
                 id2 = sec['attributes']['id']
 
-                print("Processing:", id1, id2)   # ✅ PRINT HERE
+
 
                 if g1.geom_type == "Polygon":
                     polygon, line = g1, g2

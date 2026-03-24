@@ -13,6 +13,63 @@ import networkx as nx
 from collections import defaultdict
 import copy
 
+
+
+
+def get_max_route_order(gdf, idxs, prop="sketchrouteorder"):
+
+    max_val = None
+
+    for idx in idxs:
+        val = gdf.at[idx, prop] if prop in gdf.columns else None
+
+        if val is None:
+            continue
+
+        try:
+            val = int(val)
+        except:
+            continue
+
+        if max_val is None or val > max_val:
+            max_val = val
+
+    return max_val
+
+
+def merge_lines_ordered(geoms):
+
+    if not geoms:
+        return None
+
+    geoms = [LineString(g.coords) for g in geoms]
+
+    merged_coords = list(geoms[0].coords)
+
+    for g in geoms[1:]:
+
+        start = merged_coords[-1]
+
+        g_coords = list(g.coords)
+
+        if g_coords[0] == start:
+            merged_coords.extend(g_coords[1:])
+
+        elif g_coords[-1] == start:
+            merged_coords.extend(g_coords[-2::-1])
+
+        else:
+            # find closest endpoint
+            d1 = (g_coords[0][0]-start[0])**2 + (g_coords[0][1]-start[1])**2
+            d2 = (g_coords[-1][0]-start[0])**2 + (g_coords[-1][1]-start[1])**2
+
+            if d1 < d2:
+                merged_coords.extend(g_coords[1:])
+            else:
+                merged_coords.extend(g_coords[-2::-1])
+
+    return LineString(merged_coords)
+
 def merge_simple_intersections(linegdf):
 
     nodes = []
@@ -75,7 +132,7 @@ def merge_simple_intersections(linegdf):
         component_ids = list(component)
         linestobemerged = linegdf[linegdf["id"].isin(component_ids)].copy()
 
-        merged_line = ops.linemerge(list(linestobemerged.geometry))
+        merged_line = merge_lines_ordered(list(linestobemerged.geometry))
         representative_row = linestobemerged.iloc[0].copy()
         new_id = representative_row["id"]
 
@@ -218,35 +275,44 @@ def endpoint_intersection_pairs(lines_gdf, id_col="id"):
 
     return pairs
 
-def combine_by_basealign(alignment):
-    combined = defaultdict(list)
+def combine_by_alignment(alignment):
+    groups = []
 
     for key, value in alignment.items():
-        if key == 'checkAlignnum':  # skip metadata
+        if key == "checkAlignnum":
             continue
 
-        basealign_val = tuple(sorted(value['BaseAlign']['0']))  # make it hashable
-        combined[basealign_val].append(copy.deepcopy(value))
+        base = set(value["BaseAlign"]["0"])
+        sketch = set(sum(value["SketchAlign"].values(), []))
 
-    # Build merged output
+        merged = False
+
+        for g in groups:
+            if base & g["base"] or sketch & g["sketch"]:
+                g["base"].update(base)
+                g["sketch"].update(sketch)
+                merged = True
+                break
+
+        if not merged:
+            groups.append({
+                "base": set(base),
+                "sketch": set(sketch),
+                "genType": value.get("genType"),
+                "degreeOfGeneralization": value.get("degreeOfGeneralization")
+            })
+
     merged = {}
-    for i, (basealign_val, items) in enumerate(combined.items(), start=1):
-        merged_key = str(i)
-        merged[merged_key] = {
-            'BaseAlign': {'0': list(basealign_val)},
-            'SketchAlign': {},
-            'genType': items[0].get("genType"),
-            'degreeOfGeneralization': items[0].get('degreeOfGeneralization')
+
+    for i, g in enumerate(groups, start=1):
+        merged[str(i)] = {
+            "BaseAlign": {"0": list(g["base"])},
+            "SketchAlign": {"0": list(g["sketch"])},
+            "genType": g["genType"],
+            "degreeOfGeneralization": g["degreeOfGeneralization"]
         }
 
-        # Combine SketchAlign entries
-        all_sketches = []
-        for item in items:
-            for k, v in item['SketchAlign'].items():
-                all_sketches.extend(v)
-        merged[merged_key]['SketchAlign']['0'] = all_sketches
-
-    merged['checkAlignnum'] = len(merged)
+    merged["checkAlignnum"] = len(groups)
     return merged
 
 def remap_alignment_ids(alignment, id_mapping):
@@ -254,23 +320,33 @@ def remap_alignment_ids(alignment, id_mapping):
     Update alignment dictionary to reflect new IDs from merging.
     """
     new_alignment = {}
+
     for key, value in alignment.items():
         if key == "checkAlignnum":
             continue
 
         new_val = copy.deepcopy(value)
-        new_basealign = {}
 
+        # ---- BaseAlign remap ----
+        new_basealign = {}
         for k, v in value["BaseAlign"].items():
-            new_ids = []
-            for old_id in v:
-                new_ids.append(id_mapping.get(old_id, old_id))
-            new_basealign[k] = list(set(new_ids))  # remove duplicates
+            new_ids = [id_mapping.get(old_id, old_id) for old_id in v]
+            new_basealign[k] = list(set(new_ids))
 
         new_val["BaseAlign"] = new_basealign
+
+        # ---- SketchAlign remap ----
+        new_sketchalign = {}
+        for k, v in value["SketchAlign"].items():
+            new_ids = [id_mapping.get(old_id, old_id) for old_id in v]
+            new_sketchalign[k] = list(set(new_ids))
+
+        new_val["SketchAlign"] = new_sketchalign
+
         new_alignment[key] = new_val
 
-    new_alignment["checkAlignnum"] = alignment.get("checkAlignnum", len(new_alignment))
+    new_alignment["checkAlignnum"] = len(new_alignment)
+
     return new_alignment
 
 
@@ -438,11 +514,15 @@ def apply_approved_merges(line_gdf, merge_groups, id_col="id", inplace=False):
 
         # geometries to merge
         geoms = list(gdf.loc[idxs, "geometry"])
-        merged_geom = linemerge(geoms)
+        merged_geom = merge_lines_ordered(geoms)
 
         # representative = first id in group
         rep_id = group[0]
         rep_idx = id_to_idx.get(rep_id)
+
+        # get max sketchrouteorder
+        max_order = get_max_route_order(gdf, idxs, "sketchrouteorder")
+
         if rep_idx is None:
             # fallback: first index in idxs
             rep_idx = idxs[0]
@@ -450,6 +530,8 @@ def apply_approved_merges(line_gdf, merge_groups, id_col="id", inplace=False):
 
         # assign merged geometry to representative row
         gdf.at[rep_idx, "geometry"] = merged_geom
+        if max_order is not None:
+            gdf.at[rep_idx, "SketchRouteSeqOrder"] = max_order
 
         # mark other rows for deletion
         for idx in idxs:
@@ -460,6 +542,12 @@ def apply_approved_merges(line_gdf, merge_groups, id_col="id", inplace=False):
         gdf = gdf.drop(index=rows_to_drop).reset_index(drop=True)
 
     return gdf
+
+def convert_mapping_to_sketch_ids(id_mapping):
+    sketch_mapping = {}
+    for k, v in id_mapping.items():
+        sketch_mapping[f"S{k}"] = f"S{v}"
+    return sketch_mapping
 
 
 def validate(request):
@@ -596,13 +684,13 @@ def validate(request):
             approved_snap_json = json.loads(approved_snap_pairs) if approved_snap_pairs else []
             approved_merge_json = json.loads(approved_merge_pairs) if approved_merge_pairs else []
 
-            snapped_lines = apply_approved_snaps(line_gdf, approved_snap_json, id_col="sid", inplace=False)
+            snapped_lines = apply_approved_snaps(line_gdf, approved_snap_json, id_col="id", inplace=False)
 
             approved_merge_json = approved_merge_json or []
             merge_groups = [m["merged_from"] for m in approved_merge_json]
-            merged_lines = apply_approved_merges(snapped_lines, merge_groups, id_col="sid", inplace=False)
+            merged_lines = apply_approved_merges(snapped_lines, merge_groups, id_col="id", inplace=False)
             print ("inside apply", route_ids)
-            routecorrected = validateRoute(merged_lines, route_ids, id_col="sid", inplace=False)
+            routecorrected = validateRoute(merged_lines, route_ids, id_col="id", inplace=False)
 
             edited_lines_geojson = json.loads(routecorrected.to_json())
             edited_line_features = edited_lines_geojson["features"]
@@ -615,15 +703,18 @@ def validate(request):
 
 
 
-            corrected_alignment = combine_by_basealign(alignment)
-            remapped_alignment = remap_alignment_ids(corrected_alignment, id_mapping)
+
+            sketch_id_mapping = convert_mapping_to_sketch_ids(id_mapping)
+            remapped_alignment = remap_alignment_ids(alignment, sketch_id_mapping)
+            corrected_alignment = combine_by_alignment(remapped_alignment)
+            print (corrected_alignment, id_mapping)
 
             response_data = {
                 "modifiedStreets": final_geojson,
-                "updated_alignment": remapped_alignment
+                "updated_alignment": corrected_alignment
             }
 
-            print(response_data)
+
 
             return HttpResponse(
                 json.dumps(to_builtin_types(response_data)),

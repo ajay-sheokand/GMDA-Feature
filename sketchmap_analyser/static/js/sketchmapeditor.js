@@ -220,7 +220,6 @@ function enableDefaultArrows(map) {
 
 
 function enableRouteSelect(btn) {
-  console.log("is this getting fired-route");
   baseMap.pm.disableDraw();
   baseMap.pm.disableGlobalEditMode();
 
@@ -475,8 +474,6 @@ baseMap.pm.addControls({
 });
 
   baseMap.on('pm:snap', function(e) {
-    console.log("isanythinghappeninghrre");
-    console.log('SNAP on', e.snapLatLng, 'dist(px)=', e.distance);
   });
 
   baseMap.on("pm:globaleditmodetoggled", (e) => {
@@ -526,7 +523,6 @@ baseMap.on('pm:create', function (event) {
     props.selected=false;
     props.aligned=false;
     props.otype = event.shape;
-    console.log("the feature is created here", layer)
 
     drawnItems.addLayer(layer);
       // 🔹 commit snapping to ALL existing base geometries (lines + polygons)
@@ -579,7 +575,6 @@ async function saveBMHandler() {
 
   baseUrl = getServiceUrl('validation');
 
-  console.log("What is being sent?", drawnItems, drawnItems.toGeoJSON());
 
   // ✅ Wait for AJAX
   const response = await $.ajax({
@@ -747,7 +742,7 @@ function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type, routeA
 
 
   if (type === "sketch") {
-
+    console.log("check here as well", routeArray)
     return $.ajax({   // ✅ RETURN
       headers: { "X-CSRFToken": $.cookie("csrftoken") },
       url: `${baseUrl}/validation/validate/`,
@@ -763,7 +758,6 @@ function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type, routeA
       }
     }).then(function (response) {
 
-      console.log("success", response);
 
       aftersuccessfulvalidationsketch(response);
 
@@ -888,7 +882,7 @@ drawnItems.eachLayer(function(blayer){
 
 
    $('.thumbnail').click(function(e){
-   console.log(BooleanEditSketchMode);
+
 
    if (BooleanEditSketchMode == true){
    saveSketchMap();
@@ -994,7 +988,6 @@ drawnItems.eachLayer(function(blayer){
          }
         }
         else{
-        console.log("No sketchmap own title");
         drawnSketchItems = new L.geoJson().addTo(sketchMap);
         alignmentArraySingleMap={};
         drawnItems.eachLayer(function(blayer){
@@ -1372,7 +1365,6 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
      allDrawnSketchItems[sketchMaptitle]=drawnSketchItems;
       drawnSketchItems.setStyle({opacity:1});
       AlignmentArray[sketchMaptitle]=alignmentArraySingleMap;
-      console.log("sketchmap", sketchMaptitle,alignmentArraySingleMap);
       AlignmentArray[sketchMaptitle].checkAlignnum = checkAlignnum;
    }
    }
@@ -1383,14 +1375,15 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
 
 async function saveSMHandler() {
  if (!drawnSketchItems) {
-    console.warn("drawnSketchItems not ready yet");
     return;
   }
+  syncRouteOrderFromBaseToSketch();
   var sketchIDArray = [];
   var sketchRouteArray = [];
 
   drawnSketchItems.eachLayer(function (slayer) {
     if (slayer.feature.properties.isRoute == "Yes") {
+      console.log(slayer,"check route features");
       sketchRouteArray.push(slayer.feature.properties);
     }
   });
@@ -1405,6 +1398,7 @@ async function saveSMHandler() {
     sketchIDArray.push(bysketchrouteorder[i].id);
   }
 
+  console.log("sketch route", sketchIDArray);
   baseUrl = getServiceUrl('validation');
 
   // ✅ Wait for preview ajax
@@ -1421,16 +1415,15 @@ async function saveSMHandler() {
     }
   });
 
-  console.log("successsketch", response.audit);
+
 
   if (response.audit.merge.length !== 0 || response.audit.snap.length !== 0) {
 
-    // ⚠️ If modal waits for user → must return Promise
-    await showpreviewModal(response.audit, "sketch", sketchIDArray);
 
+    await showpreviewModal(response.audit, "sketch", sketchIDArray);
   } else {
 
-    // ✅ Wait for apply ajax
+
     await callApplyValidate(null, null, "sketch", sketchIDArray);
   }
 
@@ -1701,3 +1694,55 @@ function addMouseCoordinateDisplay(map, label) {
 
 
 
+function syncRouteOrderFromBaseToSketch() {
+
+    if (!alignmentArraySingleMap) return;
+
+    // loop over each alignment group
+    Object.keys(alignmentArraySingleMap).forEach(key => {
+
+        const alignObj = alignmentArraySingleMap[key];
+
+        if (!alignObj.BaseAlign || !alignObj.SketchAlign) return;
+
+        const baseIDs = alignObj.BaseAlign[0];
+        const sketchIDs = alignObj.SketchAlign[0];
+
+        let routeOrder = null;
+
+        // 🔹 find route order from base layer
+        drawnItems.eachLayer(function (blayer) {
+
+            const id = blayer.feature.properties.id;
+
+            if (baseIDs.includes(id)) {
+
+                if (blayer.feature.properties.RouteSeqOrder !== undefined) {
+                    routeOrder = blayer.feature.properties.RouteSeqOrder;
+                }
+
+            }
+
+        });
+
+        // 🔹 assign to sketch layer
+        if (routeOrder !== null) {
+
+            drawnSketchItems.eachLayer(function (slayer) {
+
+                const sid = slayer.feature.properties.sid;
+
+                if (sketchIDs.includes(sid)) {
+
+                    slayer.feature.properties.isRoute = "Yes";
+                    slayer.feature.properties.SketchRouteSeqOrder = routeOrder;
+
+                }
+
+            });
+
+        }
+
+    });
+
+}
