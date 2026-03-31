@@ -351,52 +351,55 @@ def remap_alignment_ids(alignment, id_mapping):
 
 
 def validateRoute(line_gdf, route_ids, id_col="id", inplace=False):
-    print ("check if everything is fine in route",route_ids)
     if not route_ids or len(route_ids) < 2:
         return line_gdf if inplace else line_gdf.copy()
 
     gdf = line_gdf if inplace else line_gdf.copy()
-
-    # Build id -> row index
     id_to_idx = {val: idx for idx, val in gdf[id_col].items()}
 
-    if len(route_ids) >= 2:
-        print ("check here route")
-        f_id, s_id = route_ids[0], route_ids[1]
-        f_idx = id_to_idx.get(f_id)
-        s_idx = id_to_idx.get(s_id)
-        if f_idx is not None and s_idx is not None:
-            f_geom = gdf.at[f_idx, "geometry"]
-            s_geom = gdf.at[s_idx, "geometry"]
+    # --- Step 1: Orient the first segment ---
+    # Its END must connect to either endpoint of the second segment.
+    # If its START connects instead, reverse it.
+    f_idx = id_to_idx.get(route_ids[0])
+    s_idx = id_to_idx.get(route_ids[1])
 
-            f_start = tuple(f_geom.coords[0]);
-            f_end = tuple(f_geom.coords[-1])
-            s_start = tuple(s_geom.coords[0]);
-            s_end = tuple(s_geom.coords[-1])
+    if f_idx is not None and s_idx is not None:
+        f_geom = gdf.at[f_idx, "geometry"]
+        s_geom = gdf.at[s_idx, "geometry"]
 
-            if (f_start == s_start) or (f_start == s_end):
-                gdf.at[f_idx, "geometry"] = reverse(f_geom)
+        f_start = tuple(f_geom.coords[0])
+        f_end   = tuple(f_geom.coords[-1])
+        s_start = tuple(s_geom.coords[0])
+        s_end   = tuple(s_geom.coords[-1])
 
+        # f_end should connect to s_start or s_end
+        if f_end == s_start or f_end == s_end:
+            pass  # correct already
+        elif f_start == s_start or f_start == s_end:
+            gdf.at[f_idx, "geometry"] = reverse(f_geom)
+        # else: no clean connection found, leave as-is
+
+    # --- Step 2: Chain remaining segments ---
+    # Each segment's start must equal the previous segment's end.
     for i in range(len(route_ids) - 1):
-        curr_id = route_ids[i]
-        next_id = route_ids[i + 1]
-        curr_idx = id_to_idx.get(curr_id)
-        next_idx = id_to_idx.get(next_id)
+        curr_idx = id_to_idx.get(route_ids[i])
+        next_idx = id_to_idx.get(route_ids[i + 1])
 
         if curr_idx is None or next_idx is None:
-            continue  # skip missing ids
+            continue
 
-        curr_geom = gdf.at[curr_idx, "geometry"]
-        next_geom = gdf.at[next_idx, "geometry"]
+        curr_end   = tuple(gdf.at[curr_idx, "geometry"].coords[-1])
+        next_geom  = gdf.at[next_idx, "geometry"]
+        next_start = tuple(next_geom.coords[0])
+        next_end   = tuple(next_geom.coords[-1])
 
-        curr_end = tuple(list(curr_geom.coords)[-1])
-        next_start = tuple(list(next_geom.coords)[0])
-
-        if next_start != curr_end:
+        if next_start == curr_end:
+            pass  # already connected correctly
+        elif next_end == curr_end:
             gdf.at[next_idx, "geometry"] = reverse(next_geom)
+        # else: gap exists (snapping issue), leave as-is
 
     return gdf
-
 
 
 def to_builtin_types(obj):
