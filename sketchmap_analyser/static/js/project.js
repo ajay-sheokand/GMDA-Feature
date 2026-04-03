@@ -103,8 +103,6 @@ download = true;
 
     // ✅ Wait for both validations
     await saveBMHandler();
-    await saveSMHandler();
-
 
     console.log("Validations done. Creating ZIP...");
 

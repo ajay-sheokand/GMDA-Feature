@@ -10,7 +10,7 @@ console.log($('[data-type=imagesloader]'));
     inputID: 'files',
 
     // maximum number of files
-    maxfiles: 15,
+    maxfiles: 50,
 
     // max image bytes
     maxSize: 5000 * 1024,

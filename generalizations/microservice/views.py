@@ -1328,7 +1328,6 @@ def spatial_transformation():
     def get_connected_segments(m_ids):
         otherthanmissing = [geo for geo in data_ip['features'] if
                             geo['properties']['id'] not in m_ids and geo['geometry']['type'] == 'LineString']
-        print("other", otherthanmissing)
         missing = [geo for geo in data_ip['features'] if geo['properties']['id'] in m_ids]
         if missing:
             otherthanmissingGDF = gpd.GeoDataFrame.from_features(otherthanmissing)
@@ -1352,7 +1351,6 @@ def spatial_transformation():
         sketch_ids = [item for sublist in sketch_ids for item in sublist]
         sketchsegments = [geo for geo in data_ips['features'] if geo['properties']['sid'] in sketch_ids]
         sketchGDF = gpd.GeoDataFrame.from_features(sketchsegments)
-        print(sketchGDF,sketch_ids)
         sketchGDF['geom'] = sketchGDF.geometry
         # Self join
         sj = gpd.sjoin(sketchGDF, sketchGDF,
@@ -1437,7 +1435,6 @@ def spatial_transformation():
 
     junctionmergeCount = 0
     connectedsegments = get_connected_segments(m_ids)
-    print("connected", connectedsegments)
     if connectedsegments is not None and not connectedsegments.empty:
         correspondingsketchsegments = get_corresponding_sketch_ids(connectedsegments)
         junctionmerge_sketch_ids = detectJunctionMerge(correspondingsketchsegments)
