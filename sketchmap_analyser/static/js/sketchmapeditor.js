@@ -800,14 +800,11 @@ if (drawnItems != null) {
 
 function aftersuccessfulvalidationsketch(response){
 if (drawnSketchItems != null) {
-          if (download == false){
                     sketchMap.removeLayer(drawnSketchItems);
                  }
-                 }
                 drawnSketchItems = L.geoJSON(response.modifiedStreets);
-                if (download==false){
                 drawnSketchItems.addTo(sketchMap);
-                }
+                
                 styleLayers();
                 hoverfunction();
 

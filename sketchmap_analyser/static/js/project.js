@@ -28,7 +28,7 @@ var lmCountBeforeGen = 0;
 var hostName
 var intervalLookup = {};
 var intervalLookupSM = {};
-var download = false
+
 
 
 
@@ -111,6 +111,7 @@ download = true;
     var alignment = JSON.stringify(AlignmentArray);
     zip.file("alignment.json", alignment);
 
+   allDrawnSketchItems[sketchMaptitle] = drawnSketchItems;
     for (var key in allDrawnSketchItems) {
       zip.file(
         key + ".geojson",
