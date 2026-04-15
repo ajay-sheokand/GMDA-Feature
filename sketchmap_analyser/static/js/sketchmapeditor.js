@@ -1379,25 +1379,27 @@ async function saveSMHandler() {
     return;
   }
   syncRouteOrderFromBaseToSketch();
-  var sketchIDArray = [];
-  var sketchRouteArray = [];
+  // new code
+var sketchRouteArray = [];
 
-  drawnSketchItems.eachLayer(function (slayer) {
+drawnSketchItems.eachLayer(function (slayer) {
     if (slayer.feature.properties.isRoute == "Yes") {
-      console.log(slayer,"check route features");
-      sketchRouteArray.push(slayer.feature.properties);
+        sketchRouteArray.push(slayer.feature.properties);
     }
-  });
+});
 
-  var bysketchrouteorder = sketchRouteArray.slice(0);
+var sketchRouteGroups = {};
+sketchRouteArray.forEach(function(props) {
+    var order = props.SketchRouteSeqOrder;
+    if (!sketchRouteGroups[order]) sketchRouteGroups[order] = [];
+    sketchRouteGroups[order].push(props.id);
+});
 
-  bysketchrouteorder.sort(function (a, b) {
-    return a.SketchRouteSeqOrder - b.SketchRouteSeqOrder;
-  });
+var sketchIDArray = Object.keys(sketchRouteGroups)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map(order => sketchRouteGroups[order]);
 
-  for (var i in bysketchrouteorder) {
-    sketchIDArray.push(bysketchrouteorder[i].id);
-  }
 
   console.log("sketch route", sketchIDArray);
   baseUrl = getServiceUrl('validation');

@@ -350,6 +350,7 @@ def remap_alignment_ids(alignment, id_mapping):
     return new_alignment
 
 
+
 def validateRoute(line_gdf, route_ids, id_col="id", inplace=False):
     if not route_ids or len(route_ids) < 2:
         return line_gdf if inplace else line_gdf.copy()
@@ -357,50 +358,103 @@ def validateRoute(line_gdf, route_ids, id_col="id", inplace=False):
     gdf = line_gdf if inplace else line_gdf.copy()
     id_to_idx = {val: idx for idx, val in gdf[id_col].items()}
 
-    # --- Step 1: Orient the first segment ---
-    # Its END must connect to either endpoint of the second segment.
-    # If its START connects instead, reverse it.
-    f_idx = id_to_idx.get(route_ids[0])
-    s_idx = id_to_idx.get(route_ids[1])
+    # normalize
+    if not isinstance(route_ids[0], list):
+        route_steps = [[rid] for rid in route_ids]
+    else:
+        route_steps = [list(step) for step in route_ids]
 
-    if f_idx is not None and s_idx is not None:
-        f_geom = gdf.at[f_idx, "geometry"]
+    def sort_group_spatially(group_ids, entry_point):
+        remaining = list(group_ids)
+        ordered = []
+        current_point = entry_point
+
+        while remaining:
+            best_id   = None
+            best_idx  = None
+            best_dist = float("inf")
+            best_flip = False
+
+            for rid in remaining:
+                idx = id_to_idx.get(rid)
+                if idx is None:
+                    continue
+                geom  = gdf.at[idx, "geometry"]
+                start = tuple(geom.coords[0])
+                end   = tuple(geom.coords[-1])
+
+                d_start = (start[0]-current_point[0])**2 + (start[1]-current_point[1])**2
+                d_end   = (end[0]-current_point[0])**2   + (end[1]-current_point[1])**2
+
+                if d_start < best_dist:
+                    best_dist = d_start
+                    best_id   = rid
+                    best_idx  = idx
+                    best_flip = False
+
+                if d_end < best_dist:
+                    best_dist = d_end
+                    best_id   = rid
+                    best_idx  = idx
+                    best_flip = True
+
+            if best_flip:
+                gdf.at[best_idx, "geometry"] = reverse(gdf.at[best_idx, "geometry"])
+
+            ordered.append(best_id)
+            remaining.remove(best_id)
+            current_point = tuple(gdf.at[best_idx, "geometry"].coords[-1])
+
+        return ordered, current_point
+
+    # Step 1: Orient first group using second group as reference
+    # Find entry point for first group — work backwards from second group
+    first_group  = route_steps[0]
+    second_group = route_steps[1]
+
+    s_idx = id_to_idx.get(second_group[0])
+    if s_idx is not None:
         s_geom = gdf.at[s_idx, "geometry"]
+        # entry to first group is whichever end of second group's first segment
+        # is NOT the connection point — use start of second group as the
+        # "far end" to orient first group towards it
+        entry_for_first = tuple(s_geom.coords[0])
+    else:
+        f_idx = id_to_idx.get(first_group[0])
+        entry_for_first = tuple(gdf.at[f_idx, "geometry"].coords[0])
 
-        f_start = tuple(f_geom.coords[0])
-        f_end   = tuple(f_geom.coords[-1])
-        s_start = tuple(s_geom.coords[0])
-        s_end   = tuple(s_geom.coords[-1])
+    # sort first group spatially, ending closest to second group
+    # we want the EXIT of first group to be close to second group entry
+    # so we find entry_point as the opposite end — use the far end of second group
+    s_geom      = gdf.at[s_idx, "geometry"]
+    s_start     = tuple(s_geom.coords[0])
+    s_end       = tuple(s_geom.coords[-1])
 
-        # f_end should connect to s_start or s_end
-        if f_end == s_start or f_end == s_end:
-            pass  # correct already
-        elif f_start == s_start or f_start == s_end:
-            gdf.at[f_idx, "geometry"] = reverse(f_geom)
-        # else: no clean connection found, leave as-is
+    f_idx0      = id_to_idx.get(first_group[0])
+    f_geom0     = gdf.at[f_idx0, "geometry"]
+    f_start     = tuple(f_geom0.coords[0])
+    f_end       = tuple(f_geom0.coords[-1])
 
-    # --- Step 2: Chain remaining segments ---
-    # Each segment's start must equal the previous segment's end.
-    for i in range(len(route_ids) - 1):
-        curr_idx = id_to_idx.get(route_ids[i])
-        next_idx = id_to_idx.get(route_ids[i + 1])
+    # pick whichever end of first segment is farther from second group
+    d_fs = min((f_start[0]-s_start[0])**2+(f_start[1]-s_start[1])**2,
+               (f_start[0]-s_end[0])**2  +(f_start[1]-s_end[1])**2)
+    d_fe = min((f_end[0]-s_start[0])**2  +(f_end[1]-s_start[1])**2,
+               (f_end[0]-s_end[0])**2    +(f_end[1]-s_end[1])**2)
 
-        if curr_idx is None or next_idx is None:
-            continue
+    # entry_point for sorting = the far end (we want to walk TOWARDS second group)
+    far_entry = f_start if d_fs > d_fe else f_end
 
-        curr_end   = tuple(gdf.at[curr_idx, "geometry"].coords[-1])
-        next_geom  = gdf.at[next_idx, "geometry"]
-        next_start = tuple(next_geom.coords[0])
-        next_end   = tuple(next_geom.coords[-1])
+    ordered_first, exit_point = sort_group_spatially(first_group, far_entry)
+    route_steps[0] = ordered_first
 
-        if next_start == curr_end:
-            pass  # already connected correctly
-        elif next_end == curr_end:
-            gdf.at[next_idx, "geometry"] = reverse(next_geom)
-        # else: gap exists (snapping issue), leave as-is
+    # Step 2: Chain remaining groups
+    current_exit = exit_point
+
+    for step_i in range(1, len(route_steps)):
+        ordered, current_exit = sort_group_spatially(route_steps[step_i], current_exit)
+        route_steps[step_i] = ordered
 
     return gdf
-
 
 def to_builtin_types(obj):
     """
