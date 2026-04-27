@@ -25,6 +25,7 @@ var allGenBaseMap = {};
 var genbasemap;
 var BooleanMissingFeature;
 var BooleanEditSketchMode = false;
+var allProcessedSketchMaps = {};
 
 
 $(function() {
@@ -374,7 +375,7 @@ states: [{
 
                 if (allGenBaseMap[sketchMaptitle] != null){
                       allGenBaseMap[sketchMaptitle].eachLayer(function(glayer){
-                            glayer.bindTooltip(String(glayer.feature.properties.id), {permanent:true});
+                            glayer.bindTooltip(String(glayer.feature.properties.gen_id), {permanent:true});
                        });
                 }
             }
@@ -438,8 +439,11 @@ states: [{
             onClick: function(btn, map) {
                 btn.button.style.boxShadow = 'inset 0 -1px 5px 2px rgba(81, 77, 77, 1)';
                 drawnSketchItems.eachLayer(function(slayer){
-                    slayer.bindTooltip(String(slayer.feature.properties.sid), {permanent:true});
-                })
+                var label = slayer.feature.properties.gen_id
+                || slayer.feature.properties.sid
+                || String(slayer.feature.properties.id);
+                slayer.bindTooltip(label, {permanent:true});
+                });
                 btn.state('label-invisible');    // change state on click!
             }
         }, {
@@ -915,8 +919,10 @@ drawnItems.eachLayer(function(blayer){
         sketchMaptitle = $(e.target).parent().attr("data-original-title");
             labelButtonSketchMap.addTo(sketchMap);
         if(allDrawnSketchItems.hasOwnProperty(sketchMaptitle)){
-            drawnSketchItems=allDrawnSketchItems[sketchMaptitle];
-            drawnSketchItems.addTo(sketchMap);
+            drawnSketchItems=allProcessedSketchMaps.hasOwnProperty(sketchMaptitle)
+                    ? allProcessedSketchMaps[sketchMaptitle]
+                    : allDrawnSketchItems[sketchMaptitle];
+                    drawnSketchItems.addTo(sketchMap);
             (!(sketchMaptitle in AlignmentArray))
             if (!(sketchMaptitle in AlignmentArray)){
                 checkAlignnum = 1;

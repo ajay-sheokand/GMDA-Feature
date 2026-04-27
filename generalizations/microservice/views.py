@@ -19,6 +19,19 @@ import pandas as pd
 
 
 
+def make_gen_id(base_align):
+    """
+    Deterministic group ID derived from base-map IDs.
+    Same set of base IDs -> same gen_id, regardless of order or participant.
+    """
+    if base_align is None:
+        return None
+    if isinstance(base_align, (list, tuple, set)):
+        ids = sorted({int(i) for i in base_align})
+    else:
+        ids = [int(base_align)]
+    return "g." + ".".join(str(i) for i in ids)
+
 @ensure_csrf_cookie
 def requestFME(request):
 
@@ -1491,7 +1504,8 @@ def spatial_transformation():
         for sid in sublist:
             for feature in sketchdata['features']:
                 if feature['properties']['sid'] == sid:
-                    s_a2e_l.append(geometry.LineString(feature['geometry']['coordinates']))
+                    if feature['geometry']['type'] == 'LineString':
+                        s_a2e_l.append(geometry.LineString(feature['geometry']['coordinates']))
 
 
     for feature in sketchdata['features']:
@@ -1501,11 +1515,9 @@ def spatial_transformation():
         for sublist in s_a2e_ids_p:
             for y in sublist:
                 if y == sid:
-                    type = geo['type']
-                    coor = geo['coordinates']
-                    #print ("coor", coor)
-                    f_coor = geometry.Polygon(coor[0])
-                    s_a2e_p.append(f_coor)
+                    if geo['type'] == 'Polygon':
+                        f_coor = geometry.Polygon(geo['coordinates'][0])
+                        s_a2e_p.append(f_coor)
 
 
     s_a2e_l_res = []
@@ -1547,7 +1559,7 @@ def spatial_transformation():
             continue
         #print (x, ids, sids, "check a2ep")
         mpt = geometry.MultiPolygon(x)
-        res = mpt.convex_hull.wkt
+        res = mpt.wkt
         g1_a2e = shapely.wkt.loads(res)
 
         # Gather properties from the sketchdata
@@ -1616,6 +1628,38 @@ def spatial_transformation():
     for feature in sketchdata["features"]:
         if feature['properties']['sid'] not in flattened_s_a2e_ids:
             combined_feature_collection["features"].append(feature)
+
+    # Pass 1: stamp gen_id on every feature that has BaseAlign
+    sid_to_gen_id = {}  # sketch sid -> gen_id, built from base-side features
+
+    for feat in combined_feature_collection["features"]:
+        props = feat["properties"]
+        base_align = props.get("BaseAlign")
+        if base_align is None:
+            continue
+
+        gen_id = make_gen_id(base_align)
+        props["gen_id"] = gen_id
+
+        # Record the sketch sids this gen_id corresponds to,
+        # so we can stamp the same gen_id on the sketch-side features in pass 2.
+        sketch_align = props.get("SketchAlign")
+        if sketch_align is None:
+            continue
+        if isinstance(sketch_align, (list, tuple, set)):
+            for sid in sketch_align:
+                sid_to_gen_id[sid] = gen_id
+        else:
+            sid_to_gen_id[sketch_align] = gen_id
+
+    # Pass 2: stamp gen_id on sketch-only features via their sid
+    for feat in combined_feature_collection["features"]:
+        props = feat["properties"]
+        if "gen_id" in props:
+            continue
+        sid = props.get("sid")
+        if sid is not None and sid in sid_to_gen_id:
+            props["gen_id"] = sid_to_gen_id[sid]
 
     # print(combined_feature_collection)
     align.close()
