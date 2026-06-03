@@ -640,7 +640,7 @@ function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,re
                     if(item.properties.otype == "CircleMarker"){
                         item.properties.feat_type="Landmark";
                         }
-
+                    console.log(item, "check sketchfeature")
                     sketchMapProc.push(item);
                  }
                  else{
@@ -1016,11 +1016,11 @@ GeneralizationCSV.push("Sketch Map , BaseId , SketchId , GenId , Generalization 
             const genId   = 'g.' + sorted.join('.');
 
             GeneralizationCSV.push(
-                sketchmap + ',' +
-                baseIds.toString().replaceAll(",", " ") + ',' +
-                entry.SketchAlign[0].toString().replaceAll(",", " ") + ',' +
-                genId + ',' +
-                entry.genType.toString()
+                (sketchmap ?? "") + ',' +
+                (baseIds?.toString()?.replaceAll(",", " ") ?? "") + ',' +
+                (entry?.SketchAlign?.[0]?.toString()?.replaceAll(",", " ") ?? "") + ',' +
+                (genId ?? "") + ',' +
+                (entry?.genType?.toString() ?? "")
             );
         });
     }
