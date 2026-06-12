@@ -126,6 +126,8 @@ download = true;
 
     console.log("Download finished");
 
+    await computeGMDAFromAllGenBaseMap();
+
   } catch (err) {
 
     console.error("Download failed:", err);
@@ -134,6 +136,60 @@ download = true;
 }
 
 
+
+// Compute GMDA results from already-generated generalized base maps (allGenBaseMap)
+async function computeGMDAFromAllGenBaseMap() {
+    if (!allGenBaseMap || Object.keys(allGenBaseMap).length === 0) {
+        console.warn('No generalized base maps available to compute GMDA.');
+        return;
+    }
+
+    // Ensure genResultArray is reset
+    genResultArray = {};
+
+    for (const sketchmap of Object.keys(allGenBaseMap)) {
+        try {
+            const genLayer = allGenBaseMap[sketchmap];
+            if (!genLayer || !genLayer.toGeoJSON) continue;
+
+            const resp = JSON.stringify(genLayer.toGeoJSON());
+
+            // call existing extractor which will populate genResultArray
+            await generalizedMapExtract(0, sketchmap, { [sketchmap]: (AlignmentArray && AlignmentArray[sketchmap]) || {} }, resp);
+        } catch (e) {
+            console.error('Error computing GMDA for', sketchmap, e);
+        }
+    }
+
+    // Populate UI panel
+    try {
+        populateGMDAResults();
+    } catch (e) {
+        console.error('Error populating GMDA results UI', e);
+    }
+
+    // Also prepare and trigger a GMDA CSV download
+    try {
+        const csvLines = [];
+        csvLines.push('Map,CanOrg,CanAcc,ScaBias,DistAcc,RotBias,AngAcc');
+        for (const sketchmap of Object.keys(genResultArray)) {
+            const g = genResultArray[sketchmap] || {};
+            csvLines.push([
+                sketchmap,
+                g.CanOrg || 0,
+                g.CanAcc || 0,
+                g.ScaBias || 0,
+                g.DistAcc || 0,
+                g.RotBias || 0,
+                g.AngAcc || 0
+            ].join(','));
+        }
+        const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        saveAs(blob, 'GMDA_Summary.csv');
+    } catch (e) {
+        console.error('Error creating GMDA CSV', e);
+    }
+}
 
 async function prepareDataForQualifier(index,GenBaseMap){
 MMGeoJsonData = GenBaseMap.toGeoJSON();
@@ -1166,3 +1222,34 @@ function resolveGenId(rawId, lookups) {
     if (lookups.baseIdToGenId[s]) return lookups.baseIdToGenId[s];
     return s;
 }
+
+// Populate and toggle the GMDA summary panel from genResultArray
+function populateGMDAResults() {
+    const tbody = document.getElementById('gmda_rows');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    const keys = Object.keys(genResultArray || {});
+    if (keys.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7">No GMDA results available</td></tr>';
+    } else {
+        keys.forEach(function(sketchmap) {
+            const g = genResultArray[sketchmap] || {};
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + sketchmap + '</td>' +
+                           '<td>' + (g.CanOrg || 0) + '</td>' +
+                           '<td>' + (g.CanAcc || 0) + '</td>' +
+                           '<td>' + (g.ScaBias || 0) + '</td>' +
+                           '<td>' + (g.DistAcc || 0) + '</td>' +
+                           '<td>' + (g.RotBias || 0) + '</td>' +
+                           '<td>' + (g.AngAcc || 0) + '</td>';
+            tbody.appendChild(tr);
+        });
+    }
+    const panel = document.getElementById('gmda_summary');
+    if (panel) panel.style.display = (panel.style.display === 'none' ? 'block' : 'none');
+}
+
+// Bind button after DOM ready
+$(document).ready(function() {
+    $('#showGMDA').on('click', populateGMDAResults);
+});
