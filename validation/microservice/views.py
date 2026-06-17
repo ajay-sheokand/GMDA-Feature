@@ -625,6 +625,7 @@ def validate(request):
 
         line_features = []
         polygon_features = []
+        point_features = []
 
         for f in features:
             gtype = f["geometry"]["type"]
@@ -632,6 +633,8 @@ def validate(request):
                 line_features.append(f)
             elif gtype in ("Polygon", "MultiPolygon"):
                 polygon_features.append(f)
+            elif gtype in ("Point", "MultiPoint"):
+                point_features.append(f)
 
         # Convert lines to GeoDataFrame
         line_gdf = gpd.GeoDataFrame.from_features(line_features)
@@ -680,7 +683,7 @@ def validate(request):
             # 3) combine back with polygons
             final_geojson = {
                 "type": "FeatureCollection",
-                "features": edited_line_features + polygon_features
+                "features": edited_line_features + polygon_features + point_features
             }
 
 
@@ -706,6 +709,7 @@ def validate(request):
 
         line_features = []
         polygon_features = []
+        point_features = []
 
         for f in features:
             gtype = f["geometry"]["type"]
@@ -713,6 +717,8 @@ def validate(request):
                 line_features.append(f)
             elif gtype in ("Polygon", "MultiPolygon"):
                 polygon_features.append(f)
+            elif gtype in ("Point", "MultiPoint"):
+                point_features.append(f)
 
         # Convert lines to GeoDataFrame
         line_gdf = gpd.GeoDataFrame.from_features(line_features)
@@ -755,7 +761,7 @@ def validate(request):
             # 3) combine back with polygons
             final_geojson = {
                 "type": "FeatureCollection",
-                "features": edited_line_features + polygon_features
+                "features": edited_line_features + polygon_features + point_features
             }
 
 

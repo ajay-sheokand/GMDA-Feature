@@ -5,7 +5,8 @@ var alignSketchID=[];
 var sketchOtypearray={};
 var baseOtypearray={};
 var alignBaseID=[];
-var allDrawnSketchItems={};
+var allOriginalSketchMaps={};
+var allProcessedSketchMaps = {};
 var AlignmentArray = {};
 var checkAlignnum;
 var alignmentArraySingleMap={};
@@ -13,6 +14,8 @@ var id=-1;
 var bid=-1;
 var layerGroupBasemap = new L.LayerGroup();
 var layerGroupBasemapGen = new L.LayerGroup();
+var sketchOriginalLayer = new L.LayerGroup();
+var sketchProcessedLayer = new L.LayerGroup();
 var linearOrderingActive = false;
 var linearOrdering = new L.LayerGroup();
 var baseMap;
@@ -25,7 +28,6 @@ var allGenBaseMap = {};
 var genbasemap;
 var BooleanMissingFeature;
 var BooleanEditSketchMode = false;
-var allProcessedSketchMaps = {};
 
 
 $(function() {
@@ -438,7 +440,7 @@ states: [{
             title:     'showlabels',      // like its title
             onClick: function(btn, map) {
                 btn.button.style.boxShadow = 'inset 0 -1px 5px 2px rgba(81, 77, 77, 1)';
-                drawnSketchItems.eachLayer(function(slayer){
+                getActiveSketchLayer().eachLayer(function(slayer){
                 var label = slayer.feature.properties.gen_id
                 || slayer.feature.properties.sid
                 || String(slayer.feature.properties.id);
@@ -452,7 +454,7 @@ states: [{
             title:     'hidelabels',
             onClick: function(btn, map) {
                  btn.button.style.boxShadow = null;// and its callback
-                 drawnSketchItems.eachLayer(function(slayer){
+                 getActiveSketchLayer().eachLayer(function(slayer){
                     slayer.unbindTooltip();
                 })
                 btn.state('label-visible');
@@ -746,7 +748,6 @@ function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type, routeA
 
 
   if (type === "sketch") {
-    console.log("check here as well", routeArray)
     return $.ajax({   // ✅ RETURN
       headers: { "X-CSRFToken": $.cookie("csrftoken") },
       url: `${baseUrl}/validation/validate/`,
@@ -798,7 +799,7 @@ if (drawnItems != null) {
                     baseMap.removeControl(routeButton);
                     baseMap.removeControl(multibuildingButton);
 
-                    allDrawnSketchItems[baseMaptitle] = drawnItems;
+                    allOriginalSketchMaps[baseMaptitle] = drawnItems;
 }
 
 
@@ -806,8 +807,14 @@ function aftersuccessfulvalidationsketch(response){
 if (drawnSketchItems != null) {
                     sketchMap.removeLayer(drawnSketchItems);
                  }
-                drawnSketchItems = L.geoJSON(response.modifiedStreets);
-                drawnSketchItems.addTo(sketchMap);
+                drawnSketchItems = L.geoJSON(response.modifiedStreets, {
+                    pointToLayer: function(feature, latlng) {
+                    return L.circleMarker(latlng);
+                }
+                });
+               allOriginalSketchMaps[sketchMaptitle] = drawnSketchItems;
+               sketchOriginalLayer.clearLayers();
+               sketchOriginalLayer.addLayer(drawnSketchItems);
                 
                 styleLayers();
                 hoverfunction();
@@ -889,6 +896,7 @@ drawnItems.eachLayer(function(blayer){
    $('.thumbnail').click(function(e){
 
 
+
    if (BooleanEditSketchMode == true){
    saveSketchMap();
    }
@@ -914,15 +922,31 @@ drawnItems.eachLayer(function(blayer){
         sketchMap.fitBounds(bounds);
         enableDefaultArrows(sketchMap);
         var layerControl = new L.Control.Layers(null, {
-            'Linear Ordering' : linearOrdering
+             "Original Sketch Map": sketchOriginalLayer,
+            "Processed Sketch Map": sketchProcessedLayer,
+            "Linear Ordering": linearOrdering
         }).addTo(sketchMap);
         sketchMaptitle = $(e.target).parent().attr("data-original-title");
+        console.log("THUMBNAIL CLICKED:",sketchMaptitle);
             labelButtonSketchMap.addTo(sketchMap);
-        if(allDrawnSketchItems.hasOwnProperty(sketchMaptitle)){
-            drawnSketchItems=allProcessedSketchMaps.hasOwnProperty(sketchMaptitle)
-                    ? allProcessedSketchMaps[sketchMaptitle]
-                    : allDrawnSketchItems[sketchMaptitle];
-                    drawnSketchItems.addTo(sketchMap);
+            sketchOriginalLayer.clearLayers();
+            sketchProcessedLayer.clearLayers();
+            if (allProcessedSketchMaps.hasOwnProperty(sketchMaptitle)) {
+    sketchProcessedLayer.addLayer(
+        allProcessedSketchMaps[sketchMaptitle]
+    );
+}
+        if(allOriginalSketchMaps.hasOwnProperty(sketchMaptitle)){
+            drawnSketchItems = allOriginalSketchMaps[sketchMaptitle];
+            console.log(
+    "ADDING ORIGINAL LAYER:",
+    sketchMaptitle,
+    drawnSketchItems
+);
+                    sketchOriginalLayer.addLayer(drawnSketchItems);
+                   if (!sketchMap.hasLayer(sketchOriginalLayer)) {
+                        sketchOriginalLayer.addTo(sketchMap);
+                   }
             (!(sketchMaptitle in AlignmentArray))
             if (!(sketchMaptitle in AlignmentArray)){
                 checkAlignnum = 1;
@@ -1158,7 +1182,17 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
 
     }
 
+function getActiveSketchLayer() {
 
+    if (
+        sketchMap?.hasLayer(sketchProcessedLayer) &&
+        allProcessedSketchMaps[sketchMaptitle]
+    ) {
+        return allProcessedSketchMaps[sketchMaptitle];
+    }
+
+    return drawnSketchItems;
+}
 
     $('#alignbutton').click(function(){
         checkIfAlignedAlready(alignSketchID);
@@ -1229,32 +1263,62 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
        baseOtypearray = {};
        hoverfunction();
     }
-    var hoverarray = [];
 
 
-    function hoverfunction(){
 
-    drawnSketchItems.eachLayer(function(slayer){
-    slayer.on('mouseover', function() {
-      if (slayer.feature.properties.aligned == true){
-      for (i in alignmentArraySingleMap){
-           if (alignmentArraySingleMap[i].SketchAlign[0].includes(slayer.feature.properties.sid)){
-               hoverarray.push(alignmentArraySingleMap[i].BaseAlign[0]);
-               hoverarray.push(alignmentArraySingleMap[i].SketchAlign[0]);
-               break;
-           }
-      }
-    }
+function hoverfunction() {
 
-    changestyleOnHover(hoverarray);
+    drawnSketchItems.eachLayer(function (slayer) {
+
+        // Remove previously attached handlers
+        if (slayer._alignmentHoverHandler) {
+            slayer.off('mouseover', slayer._alignmentHoverHandler);
+        }
+
+        if (slayer._alignmentMouseOutHandler) {
+            slayer.off('mouseout', slayer._alignmentMouseOutHandler);
+        }
+
+        slayer._alignmentHoverHandler = function () {
+
+            console.count("SM hover");
+
+            if (slayer.feature.properties.aligned === true) {
+
+                let hoverarray = [];
+
+                for (let i in alignmentArraySingleMap) {
+
+                    if (
+                        alignmentArraySingleMap[i].SketchAlign[0]
+                            .includes(slayer.feature.properties.sid)
+                    ) {
+
+                        hoverarray.push(
+                            alignmentArraySingleMap[i].BaseAlign[0]
+                        );
+
+                        hoverarray.push(
+                            alignmentArraySingleMap[i].SketchAlign[0]
+                        );
+
+                        break;
+                    }
+                }
+
+                changestyleOnHover(hoverarray);
+            }
+        };
+
+        slayer._alignmentMouseOutHandler = function () {
+            hoverarray = [];
+            styleLayers();
+        };
+
+        slayer.on('mouseover', slayer._alignmentHoverHandler);
+        slayer.on('mouseout', slayer._alignmentMouseOutHandler);
     });
-
-    slayer.on('mouseout', function() {
-    hoverarray=[];
-    styleLayers();
-    });
-       });
-    }
+}
 
 
   function predictGeneralization(sketchtype,basetype){
@@ -1369,7 +1433,7 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
      addedClickSketch = false;
 
 
-     allDrawnSketchItems[sketchMaptitle]=drawnSketchItems;
+     allOriginalSketchMaps[sketchMaptitle]=drawnSketchItems;
       drawnSketchItems.setStyle({opacity:1});
       AlignmentArray[sketchMaptitle]=alignmentArraySingleMap;
       AlignmentArray[sketchMaptitle].checkAlignnum = checkAlignnum;
@@ -1407,7 +1471,6 @@ var sketchIDArray = Object.keys(sketchRouteGroups)
     .map(order => sketchRouteGroups[order]);
 
 
-  console.log("sketch route", sketchIDArray);
   baseUrl = getServiceUrl('validation');
 
   // ✅ Wait for preview ajax
