@@ -65,7 +65,7 @@ def landmark_pairs_generator(v_pairs, b_mbr, s_mbr):
             if s1 == s2:
                 continue
             b1_pts, s1_pts = b_mbr[b1], s_mbr[s1]
-            b2_pts, s2_pts = b_mbr[b2], s_mbr[b2]
+            b2_pts, s2_pts = b_mbr[b2], s_mbr[s2]
             for p1 in range(8):
                 for p2 in range(8):
                     yield (
