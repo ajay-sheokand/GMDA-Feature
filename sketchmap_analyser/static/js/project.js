@@ -140,55 +140,44 @@ download = true;
 // Compute GMDA results from already-generated generalized base maps (allGenBaseMap)
 async function computeGMDAFromAllGenBaseMap() {
     if (!allGenBaseMap || Object.keys(allGenBaseMap).length === 0) {
-        console.warn('No generalized base maps available to compute GMDA.');
+        alert('Please run Analyse first before using the GMDA Calculator.');
         return;
     }
 
-    // Ensure genResultArray is reset
-    genResultArray = {};
+    $('#loading-spinner').show()
+    const baseUrl = getServiceUrl('gmda');
 
     for (const sketchmap of Object.keys(allGenBaseMap)) {
         try {
-            const genLayer = allGenBaseMap[sketchmap];
-            if (!genLayer || !genLayer.toGeoJSON) continue;
+            const genLayer = allGenBaseMap[sketchmap]
+            const sketchLayer = allProcessedSketchMaps[sketchmap];
+            if (!genLayer || !sketchLayer) continue;
 
-            const resp = JSON.stringify(genLayer.toGeoJSON());
-
-            // call existing extractor which will populate genResultArray
-            await generalizedMapExtract(0, sketchmap, { [sketchmap]: (AlignmentArray && AlignmentArray[sketchmap]) || {} }, resp);
+            const response = await $.ajax({
+                headers: { "X-CSRFToken": $.cookie("csrftoken")},
+                url: `${baseUrl}/gmda/calculateGMDA/`,
+                type: 'POST',
+                data: {
+                    basemapdata: JSON.stringify(genLayer.toGeoJSON()),
+                    sketchmapdata: JSON.stringify(sketchLayer.toGeoJSON())
+                }
+            });
+            
+            if (!genResultArray[sketchmap]) genResultArray[sketchmap] = {};
+            genResultArray[sketchmap].CanOrg = response.CanOrg;
+            genResultArray[sketchmap].CanAcc = response.CanAcc;
+            genResultArray[sketchmap].ScaBias = response.ScaBias;
+            genResultArray[sketchmap].DistAcc = response.DistAcc;
+            genResultArray[sketchmap].RotBias = response.RotBias;
+            genResultArray[sketchmap].AngAcc = response.AngAcc;
         } catch (e) {
-            console.error('Error computing GMDA for', sketchmap, e);
+            console.error('GMDA failed for', sketchmap, e);
         }
     }
-
-    // Populate UI panel
-    try {
-        populateGMDAResults();
-    } catch (e) {
-        console.error('Error populating GMDA results UI', e);
-    }
-
-    // Also prepare and trigger a GMDA CSV download
-    try {
-        const csvLines = [];
-        csvLines.push('Map,CanOrg,CanAcc,ScaBias,DistAcc,RotBias,AngAcc');
-        for (const sketchmap of Object.keys(genResultArray)) {
-            const g = genResultArray[sketchmap] || {};
-            csvLines.push([
-                sketchmap,
-                g.CanOrg || 0,
-                g.CanAcc || 0,
-                g.ScaBias || 0,
-                g.DistAcc || 0,
-                g.RotBias || 0,
-                g.AngAcc || 0
-            ].join(','));
-        }
-        const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-        saveAs(blob, 'GMDA_Summary.csv');
-    } catch (e) {
-        console.error('Error creating GMDA CSV', e);
-    }
+    $('#loading-spinner').hide();
+    $('#summary_result_div').prop("style", 
+        "height:500px; overflow:auto; visibility:visible; position:absolute; z-index:10000000; background-color:white");
+    populateGMDAResults();
 }
 
 async function prepareDataForQualifier(index,GenBaseMap){
@@ -605,7 +594,8 @@ function getServiceUrl(serviceName) {
             generalizations: 8001,
             completeness: 8002,
             qualitativerelations: 8003,
-            validation:8004
+            validation:8004,
+            gmda:8005
         };
         return `${protocol}//${hostName}:${portMap[serviceName]}`;
     }

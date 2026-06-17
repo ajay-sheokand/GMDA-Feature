@@ -45,3 +45,14 @@ services:
     ports:
       - "8000:8000"
     restart: always
+  
+  gmda:
+    build: ./gmda
+    command: bash -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8005"
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./gmda:/app
+    restart: always
+
+  
