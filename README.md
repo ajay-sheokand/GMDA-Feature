@@ -9,10 +9,10 @@ This specific implementation has been adpated for modern geospatial workflows, p
 
 ## Key Features
 
-- Geospatial Compatibility: Directly ingests GeoJSON feature collections representing landmarks.
-- Advanced Mode Support: Implements the paper's "Advanced Mode" by using 8 peripheral points along the MBR of each landmark instead of the "Basic Mode", which uses a Single Centroid. This accurately captures both the position and the spatial extend/orientation of the drawn landmarks or objects.
-- Robust Angular Math: It uses the trigonometric summation (np.arctan2) to accurately calculate circular means, gracefully handling the  $0^\circ \equiv 360^\circ$ wrap-around.
-- Strict 1-to-1 Alignment: Utilizes a Union-Find structure via a "SketchAlign" attribute to group features, filtering for strict 1-to-1 matches to prevent severe distortion of metrics.
+- Geospatial Compatibility: Directly ingests GeoJSON feature collections representing landmarks.  
+- Advanced Mode Support: Implements the paper's "Advanced Mode" by using 8 peripheral points along the MBR of each landmark instead of the "Basic Mode", which uses a Single Centroid. This accurately captures both the position and the spatial extend/orientation of the drawn landmarks or objects.  
+- Robust Angular Math: It uses the trigonometric summation (np.arctan2) to accurately calculate circular means, gracefully handling the  $0^\circ \equiv 360^\circ$ wrap-around.  
+- Strict 1-to-1 Alignment: Utilizes a Union-Find structure via a "SketchAlign" attribute to group features, filtering for strict 1-to-1 matches to prevent severe distortion of metrics.  
 
 ## Combinatorics (Advanced Mode)
 
