@@ -180,6 +180,51 @@ async function computeGMDAFromAllGenBaseMap() {
     populateGMDAResults();
 }
 
+
+async function computeJunctionGMDAFromAllGenBaseMap() {
+    if (!allGenBaseMap || Object.keys(allGenBaseMap).length === 0) {
+        alert('Please run Analyse first before using the GMDA Calculator.');
+        return;
+    }
+
+    $('#loading-spinner').show();
+    const baseUrl = getServiceUrl('gmda');
+
+    for (const sketchmap of Object.keys(allGenBaseMap)) {
+        try {
+            const genLayer = allGenBaseMap[sketchmap];
+            const sketchLayer = allProcessedSketchMaps[sketchmap];
+            if (!genLayer || !sketchLayer) continue;
+
+            const response = await $.ajax({
+                headers: {"X-CSRFToken": $.cookie('csrftoken')},
+                url: `${baseUrl}/gmda/calculateJunctionGMDA/`,
+                type: 'POST',
+                data: {
+                    basemapdata: JSON.stringify(genLayer.toGeoJSON()),
+                    sketchmapdata: JSON.stringify(sketchLayer.toGeoJSON())
+                }
+            });
+
+            if (!genResultArray[sketchmap]) genResultArray[sketchmap] = {};
+            genResultArray[sketchmap].Junc_CanOrg = response.CanOrg;
+            genResultArray[sketchmap].Junc_CanAcc = response.CanAcc;
+            genResultArray[sketchmap].Junc_ScaBias = response.ScaBias;
+            genResultArray[sketchmap].Junc_DistAcc = response.DistAcc;
+            genResultArray[sketchmap].Junc_RotBias = response.RotBias;
+            genResultArray[sketchmap].Junc_AngAcc = response.AngAcc;
+        
+        } catch (e) {
+            console.error('Junction GMDA failed for', sketchmap, e);
+        }
+    }
+
+    $('#loading-spinner').hide();
+    $('#summary_result_div').prop("style",
+        "height:500px; overflow:auto; visibility:visible; position:absolute; z-index:10000000; background-color:white");
+    populateGMDAResults();
+}
+
 async function prepareDataForQualifier(index,GenBaseMap){
 MMGeoJsonData = GenBaseMap.toGeoJSON();
     var count = 0;
@@ -1214,6 +1259,7 @@ function resolveGenId(rawId, lookups) {
 }
 
 // Populate and toggle the GMDA summary panel from genResultArray
+// Populate and toggle the GMDA summary panel from genResultArray
 function populateGMDAResults() {
     const tbody = document.getElementById('gmda_rows');
     if (!tbody) return;
@@ -1225,21 +1271,25 @@ function populateGMDAResults() {
         keys.forEach(function(sketchmap) {
             const g = genResultArray[sketchmap] || {};
             const tr = document.createElement('tr');
+            
+            // Dynamically fall back to Junc_ keys if the standard keys are missing
+            const canOrg  = g.CanOrg  !== undefined ? g.CanOrg  : (g.Junc_CanOrg  || 0);
+            const canAcc  = g.CanAcc  !== undefined ? g.CanAcc  : (g.Junc_CanAcc  || 0);
+            const scaBias = g.ScaBias !== undefined ? g.ScaBias : (g.Junc_ScaBias || 0);
+            const distAcc = g.DistAcc !== undefined ? g.DistAcc : (g.Junc_DistAcc || 0);
+            const rotBias = g.RotBias !== undefined ? g.RotBias : (g.Junc_RotBias || 0);
+            const angAcc  = g.AngAcc  !== undefined ? g.AngAcc  : (g.Junc_AngAcc  || 0);
+
             tr.innerHTML = '<td>' + sketchmap + '</td>' +
-                           '<td>' + (g.CanOrg || 0) + '</td>' +
-                           '<td>' + (g.CanAcc || 0) + '</td>' +
-                           '<td>' + (g.ScaBias || 0) + '</td>' +
-                           '<td>' + (g.DistAcc || 0) + '</td>' +
-                           '<td>' + (g.RotBias || 0) + '</td>' +
-                           '<td>' + (g.AngAcc || 0) + '</td>';
+                           '<td>' + canOrg + '</td>' +
+                           '<td>' + canAcc + '</td>' +
+                           '<td>' + scaBias + '</td>' +
+                           '<td>' + distAcc + '</td>' +
+                           '<td>' + rotBias + '</td>' +
+                           '<td>' + angAcc + '</td>';
             tbody.appendChild(tr);
         });
     }
     const panel = document.getElementById('gmda_summary');
     if (panel) panel.style.display = (panel.style.display === 'none' ? 'block' : 'none');
 }
-
-// Bind button after DOM ready
-$(document).ready(function() {
-    $('#showGMDA').on('click', populateGMDAResults);
-});
