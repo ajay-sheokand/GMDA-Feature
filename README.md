@@ -1,11 +1,18 @@
 Gardony Map Drawing Analyzer (GMDA) - SketchMapia Feature
 ==========================================================
 
-
-## Overview
 This repo provides a Python implementation of the Gardony Map Drawing Analyzer (GMDA) metrics, designed to evaluate spatial memory and cognitive map accuracy. Originally introduced by Gardony et al., these metrics assess the spatial distortion between a sketchmap (drawn) and a basemap (target). 
 
-This specific implementation has been adpated for modern geospatial workflows, processing spatial data via GeoJSON and utilizing Minimum Bounding Rectangles (MBRs).
+
+This repo is built directly on top of the [Sketchmapia Microservices](https://github.com/ifgi-sil/SketchMapia-Microservices) framework developed by the Spatial Intelligence Lab (SIL) at the Institute for Geoinformatics (IFGI) in University of Münster.
+
+
+## Background
+This feature was developed based on the foundational research presented in: 
+
+[Gardony Map Drawing Analyzer: Software for Quantitative Analyses of Sketch maps by Aaron L. Gardony, Holly A. Taylor, Tad T. Brunyé (2016)](https://link.springer.com/article/10.3758/s13428-014-0556-x)
+
+
 
 ## Key Features
 
@@ -32,12 +39,12 @@ This service outputs a dictionary containing the following core spatial metrics:
 1. **Canonical Organization (CanOrg)**:  
 Measures the overall spatial organization and topological accuracy (N/S/E/W relationships). It uses the total possible landmark pairs ($N_{TL}$) as the denominator, intentionally penalizing the score for any omitted/forgotten landmarks.
 
-$$CanOrg = \frac{\sum_{i=1}^{N_{TL}} \text{canonical\_score}i}{2N_{TL}}$$
+$$CanOrg = \frac{\sum_{i=1}^{N_{TL}} \text{CanonicalScore}_i}{2N_{TL}}$$
 
 2. **Canonical Accuracy (CanAcc)**:  
 Tsolates the accuracy of the spatial layout from recall completeness. It switches the denominator to the drawn landmark pairs ($N_{DL}$), meaning it does not penalize the user for missing landmarks, only for the placement of the landmarks they did draw.
 
-$$CanAcc = \frac{\sum_{i=1}^{N_{DL}} \text{canonical\_score}_i}{2N_{DL}}$$
+$$CanAcc = \frac{\sum_{i=1}^{N_{DL}} \text{CanonicalScore}_i}{2N_{DL}}$$
 
 3. **Distance Accuracy (DistAcc)**:  
 Calculates the magnitude of distance error between landmark pairs, scale-equalized and normalized to a score between 0 and 1. Let $dr_{SM}$ and $dr_{TE}$ be the distance ratios (distance divided by max distance) for the sketch map and target environment, respectively.
