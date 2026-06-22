@@ -1,4 +1,6 @@
-# Gardony Map Drawing Analyzer (GMDA) - SketchMapia Feature
+Gardony Map Drawing Analyzer (GMDA) - SketchMapia Feature
+==========================================================
+
 
 ## Overview
 This repo provides a Python implementation of the Gardony Map Drawing Analyzer (GMDA) metrics, designed to evaluate spatial memory and cognitive map accuracy. Originally introduced by Gardony et al., these metrics assess the spatial distortion between a sketchmap (drawn) and a basemap (target). 
