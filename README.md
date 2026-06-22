@@ -32,7 +32,7 @@ This service outputs a dictionary containing the following core spatial metrics:
 1. **Canonical Organization (CanOrg)**:  
 Measures the overall spatial organization and topological accuracy (N/S/E/W relationships). It uses the total possible landmark pairs ($N_{TL}$) as the denominator, intentionally penalizing the score for any omitted/forgotten landmarks.
 
-$$CanOrg = \frac{\sum_{i=1}^{N_{TL}} \text{canonical\_score}_i}{2N_{TL}}$$
+$$CanOrg = \frac{\sum_{i=1}^{N_{TL}} \text{canonical\_score}i}{2N_{TL}}$$
 
 2. **Canonical Accuracy (CanAcc)**:  
 Tsolates the accuracy of the spatial layout from recall completeness. It switches the denominator to the drawn landmark pairs ($N_{DL}$), meaning it does not penalize the user for missing landmarks, only for the placement of the landmarks they did draw.
