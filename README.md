@@ -74,3 +74,116 @@ Computes the circular mean of angular differences to identify systematic rotatio
 $$RotBias = \frac{180}{\pi} \text{atan2}\left( \frac{\sum_{i=1}^{N_{DL}} \sin(ang_{Diff, i})}{N_{DL}}, \frac{\sum_{i=1}^{N_{DL}} \cos(ang_{Diff, i})}{N_{DL}} \right)$$
 
 
+## New Features Added:
+1. **GMDA Calculator (Landmark Based)**:
+
+Calculates the six GMDA metrics using polygon features (landmarks such as buildings) from the generalized basemap and sketchmap.
+
+**How it works?**
+- After running **Analyse**, the generalized base map and processed sketchmap are available in the frontend.
+- Clicking the button sends both the maps as GeoJSON to the **gmda** microservice via a **POST** request to **/gmda/calculateGMDA**
+- The backend extrats all polygon features from both maps, builds 8-point MBRs for each, resolves alignement using the **SketchAlign** property, and classifies pairs into 1:1, Many:1, and Many:Many groups using Union-Find.
+- The six metrics are computed over all valid landmark pairs and returned as JSON.
+- Results are then displayed in the GMDA summary panel.
+
+2. **Junction based GMDA Calculator**:
+
+Calculates the six GMDA metrics using street junction points -- the intersections of road segments -- from both maps.
+
+**How it works?**
+- After running **Analse**, clicking the button sends both maps as **GeoJSON** to **/gmda/calculateJunctionGMDA** 
+- The backend detects junctions by finding road endpoints that share the same coordinate (rounded  to 3 decimal places) across two or more line segments.
+- For the basemap, all junctions are considered for **nTL**(total landmakrs). For the sketchmap, only junctions formed by road IDs shared with the base maps are used.
+- Junctions are matched between maps using a **topological subset check**: a sketch junctions matches a base junction if all road IDs at the sketch junction are a subset of the road IDs at the base junction.
+- Matched pairs are classified using the the same Union-Find grouping as landmarks, and the six metrics are computed and returned.
+
+
+## New Microservice:  **gmda**
+
+A new Django microservice was added following the same architecture as the existing services(**completeness, accuracy, generalizations**)
+
+```text
+gmda/
+├── Dockerfile                  # runs on port 8005
+├── requirements.txt            # Django, numpy, shapely
+├── manage.py
+├── gmda/
+│   ├── settings.py
+│   ├── urls.py                 # routes /gmda/ to microservice/urls.py
+│   ├── wsgi.py
+│   └── asgi.py
+└── microservice/
+    ├── urls.py
+       # maps endpoints to views
+    └── views.py                # all GMDA logic lives here
+```
+
+### Endpoints
+
+| Endpoint | Method | Description |
+| :--- | :---: | :--- |
+| `/gmda/calculateGMDA/` | **POST** | Landmark-based GMDA |
+| `/gmda/calculateJunctionGMDA/` | **POST** | Junction-based GMDA |
+
+### Request Format (Both Endpoints)
+
+```text
+POST /gmda/calculateGMDA/
+Content-Type: application/x-www-form-urlencoded
+
+basemapdata=[GeoJSON string]&sketchmapdata=[GeoJSON string]
+```
+
+### Response Format
+
+
+```json
+{
+  "CanOrg": 0.0962,
+  "CanAcc": 0.8917,
+  "ScaBias": -0.0001,
+  "DistAcc": 0.9358,
+  "RotBias": -30.2334,
+  "AngAcc": 0.7942,
+  "nTL": 14,
+  "nDL": 5
+}
+```
+
+---
+
+## Changes to Existing Files
+
+| File | Change |
+| :--- | :--- |
+| `docker-compose.yml` | Added `gmda` service on port 8005. |
+| `sketchmap_analyser/static/js/project.js` | Added `gmda: 8005` to port map; added `computeGMDAFromAllGenBaseMap()` and `computeJunctionGMDAFromAllGenBaseMap()` handler functions. |
+| `sketchmap_analyser/templates/generalizingmaps.html` | Added "Calculate GMDA" and "Calculate Junction GMDA" menu items under the GMDA Calculator menu. |
+| `generalizations/generalizations/settings.py` | Fixed CORS configuration. |
+
+---
+
+## Usage
+
+1. **Start all services:**
+```bash
+   docker-compose up --build
+   ```
+2. Open `http://localhost:8000/generalizingmaps/` in your browser.
+3. Load a project and click **Analyse** -> **Both**.
+4. Once the analysis completes, click **GMDA Calculator** -> **Calculate GMDA** for landmark metrics, or **GMDA Calculator** -> **Calculate Junction GMDA** for junction metrics.
+5. Results will appear in the **GMDA Summary** panel and can be downloaded as a CSV.
+
+> ⚠️ **Note:** The `Analyse` step must be run before using the GMDA Calculator. The GMDA calculation strictly depends on the generalized base maps produced by the initial analysis.
+
+
+# Contributors
+
+A massive thankyou to everyone who helped build the GMDA Calculator!
+
+- Clement Amirault [CL-77](https://github.com/CL-77)
+
+- Ajay [ajay-sheokand](https://github.com/ajay-sheokand)
+
+
+
