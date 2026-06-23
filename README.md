@@ -26,7 +26,11 @@ Utilizes a Union-Find structure via a "SketchAlign" attribute to group features,
 
 Since, this method represents each landmark using 8 peripheral points. It generates a massive number of pairwise comparisons. To prevent the peripheral points belonging to the same landmark from being compared to one another, the total number of valid comparisons is strictly calculated.
 
-Let $n_{TL}$ be the number of total target landmarks, and $n_{DL}$ be the number of drawn sketch landmarks. The total number of pairwise comparisons ($N$) is defined as:For Total Target Landmarks ($N_{TL}$):$$N_{TL} = \binom{8n_{TL}}{2} - n_{TL}\binom{8}{2}$$For Drawn Landmarks ($N_{DL}$):$$N_{DL} = \binom{8n_{DL}}{2} - n_{DL}\binom{8}{2}$$
+Let $n_{TL}$ be the number of total target landmarks, and $n_{DL}$ be the number of drawn sketch landmarks. The total number of pairwise comparisons ($N$) is defined as:  
+For Total Target Landmarks ($N_{TL}$):
+$$N_{TL} = \binom{8n_{TL}}{2} - n_{TL}\binom{8}{2}$$
+
+For Drawn Landmarks ($N_{DL}$):$$N_{DL} = \binom{8n_{DL}}{2} - n_{DL}\binom{8}{2}$$
 
 
 ## Metrics Calculated
