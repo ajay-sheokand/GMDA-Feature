@@ -1209,9 +1209,27 @@ if (Object.keys(qualresponseArray)!=0){
 
                 zip.file("QADetailedOutput.csv", QASummaryCSV.join("\n"));
 }
-        for (var i in Object.keys(allGenBaseMap)){
-        zip.folder("GeneralizedBaseMap").file(Object.keys(allGenBaseMap)[i]+".geojson", JSON.stringify(allGenBaseMap[Object.keys(allGenBaseMap)[i]].toGeoJSON()));
-        }
+        const genFolder = zip.folder("GeneralizedMaps");
+
+// Generalized basemaps
+for (var i in Object.keys(allGenBaseMap)) {
+    const mapName = Object.keys(allGenBaseMap)[i];
+
+    genFolder.file(
+        mapName + "_basemap.geojson",
+        JSON.stringify(allGenBaseMap[mapName].toGeoJSON())
+    );
+}
+
+// Processed sketch maps
+for (var i in Object.keys(allProcessedSketchMaps)) {
+    const mapName = Object.keys(allProcessedSketchMaps)[i];
+
+    genFolder.file(
+        mapName + "_sketch.geojson",
+        JSON.stringify(allProcessedSketchMaps[mapName].toGeoJSON())
+    );
+}
         zip.generateAsync({type:"blob"})
         .then(function(content) {
         saveAs(content, "Results.zip");
@@ -1248,9 +1266,7 @@ function buildGenIdLookups(alignmentForMap) {
     return { baseIdToGenId, sketchIdToGenId, groupIdToGenId };
 }
 
-// Translate any raw id used in CSVs into gen_id.
-// Handles: "G<key>" group ids, sketch sids ("S12"), numeric base ids, and
-// falls back to "g.<n>" for unmapped numeric base ids (missing features).
+
 function resolveGenId(rawId, lookups) {
     if (rawId == null || rawId === '') return rawId;
     const s = String(rawId).trim();

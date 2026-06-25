@@ -30,7 +30,9 @@ def make_gen_id(base_align):
         ids = sorted({int(i) for i in base_align})
     else:
         ids = [int(base_align)]
+    print( "g." + ".".join(str(i) for i in ids))
     return "g." + ".".join(str(i) for i in ids)
+
 
 @ensure_csrf_cookie
 def requestFME(request):
@@ -1507,6 +1509,11 @@ def spatial_transformation():
                     if feature['geometry']['type'] == 'LineString':
                         s_a2e_l.append(geometry.LineString(feature['geometry']['coordinates']))
 
+    print("TOTAL s_a2e_l =", len(s_a2e_l))
+
+    for i, g in enumerate(s_a2e_l):
+        print("LINE", i, list(g.coords))
+
 
     for feature in sketchdata['features']:
         geo = feature['geometry']
@@ -1519,21 +1526,33 @@ def spatial_transformation():
                         f_coor = geometry.Polygon(geo['coordinates'][0])
                         s_a2e_p.append(f_coor)
 
-
+    print("s_a2e_ids_l =", s_a2e_ids_l)
     s_a2e_l_res = []
-    for sublist in s_a2e_ids:
+    for sublist in s_a2e_ids_l:
         start = sum([len(sub) for sub in s_a2e_l_res])
         end = start + len(sublist)
         s_a2e_l_res.append(s_a2e_l[start:end])
 
+
+
     s_a2e_p_res = []
-    for sublist in s_a2e_ids:
+    for sublist in s_a2e_ids_p:
         start = sum([len(sub) for sub in s_a2e_p_res])
         end = start + len(sublist)
         s_a2e_p_res.append(s_a2e_p[start:end])
 
+    print("s_a2e_ids =", s_a2e_ids)
+    print("s_a2e_ids_l =", s_a2e_ids_l)
+
+    for i, group in enumerate(s_a2e_p_res):
+        print("POLYGON GROUP", i, "POLYGONS", len(group))
+
+
     for x, ids, sids in zip(s_a2e_l_res, a2e_ids, s_a2e_ids_l):
+        if len(x) == 0:
+            continue
         multi_line = geometry.MultiLineString(x)
+
         if is_connected(multi_line):
             merged_line = ops.linemerge(multi_line)
             g1_a2e = geometry.shape(merged_line)
@@ -1660,6 +1679,7 @@ def spatial_transformation():
         sid = props.get("sid")
         if sid is not None and sid in sid_to_gen_id:
             props["gen_id"] = sid_to_gen_id[sid]
+            print("check sketch", sid_to_gen_id[sid])
 
     # print(combined_feature_collection)
     align.close()
