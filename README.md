@@ -5,9 +5,6 @@
 ![Docker](https://img.shields.io/badge/Docker-compose-2496ED)
 ![Port](https://img.shields.io/badge/gmda-:8005-orange)
 
-<p align="center">
-  <img src="./docs/images/architecture.png" alt="GMDA Architecture" width="750"/>
-</p>
 
 This repo is built directly on top of the [Sketchmapia Microservices](https://github.com/ifgi-sil/SketchMapia-Microservices) framework developed by the Spatial Intelligence Lab (SIL) at the Institute for Geoinformatics (IFGI) in University of Münster.
 
@@ -112,7 +109,7 @@ The end-to-end flow from loading a project to viewing the GMDA metrics:
 ### Request Lifecycle
 
 <p align="center">
-  <img src="./docs/images/sequence.png" alt="Request Lifecycle" width="700"/>
+  <img src="./docs/images/request_lifecycle.png" alt="Request Lifecycle" width="700"/>
 </p>
 
 
@@ -134,7 +131,7 @@ Calculates the six GMDA metrics using polygon features (landmarks such as buildi
 Calculates the six GMDA metrics using street junction points -- the intersections of road segments -- from both maps.
 
 <p align="center">
-  <img src="./docs/images/junction.png" alt="Junction Matching Logic" width="650"/>
+  <img src="./docs/images/junction_matching.png" alt="Junction Matching Logic" width="650"/>
 </p>
 
 **How it works?**
