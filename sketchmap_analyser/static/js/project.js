@@ -28,7 +28,7 @@ var lmCountBeforeGen = 0;
 var hostName
 var intervalLookup = {};
 var intervalLookupSM = {};
-
+var junctionGeoJsonPerSketchmap = {};
 
 
 
@@ -190,6 +190,10 @@ async function computeJunctionGMDAFromAllGenBaseMap() {
     $('#loading-spinner').show();
     const baseUrl = getServiceUrl('gmda');
 
+    // Clear basemap junction layer before repopulating
+    layerGroup_junctions.clearLayers();
+    junctionGeoJsonPerSketchmap = {};
+
     for (const sketchmap of Object.keys(allGenBaseMap)) {
         try {
             const genLayer = allGenBaseMap[sketchmap];
@@ -206,6 +210,7 @@ async function computeJunctionGMDAFromAllGenBaseMap() {
                 }
             });
 
+            // Store scalar results
             if (!genResultArray[sketchmap]) genResultArray[sketchmap] = {};
             genResultArray[sketchmap].Junc_CanOrg = response.CanOrg;
             genResultArray[sketchmap].Junc_CanAcc = response.CanAcc;
@@ -213,10 +218,70 @@ async function computeJunctionGMDAFromAllGenBaseMap() {
             genResultArray[sketchmap].Junc_DistAcc = response.DistAcc;
             genResultArray[sketchmap].Junc_RotBias = response.RotBias;
             genResultArray[sketchmap].Junc_AngAcc = response.AngAcc;
-        
+
+            // Store sketchmap junction GeoJSON keyed by sketchmap name
+            // so sketchmapeditor.js can reload it when the user switches sketchmaps
+            if (response.sketchmapJunctions) {
+                junctionGeoJsonPerSketchmap[sketchmap] = response.sketchmapJunctions;
+            }
+
+            // Add basemap junctions to the shared basemap layer
+            if (response.basemapJunctions && response.basemapJunctions.features.length > 0) {
+                L.geoJSON(response.basemapJunctions, {
+                    pointToLayer: function(feature, latlng) {
+                        return L.circleMarker(latlng, {
+                            radius: feature.properties.matched ? 7 : 5,
+                            fillColor: feature.properties.matched ? '#00ff40' : '#059318',
+                            color: '#ffffff',
+                            weight: 1.5,
+                            fillOpacity: 1.0
+                        });
+                    },
+                    onEachFeature: function(feature, layer) {
+                        layer.bindTooltip(
+                            '<b>Junction:</b> ' + feature.properties.junc_id +
+                            '<br><b>Lines:</b> ' + feature.properties.line_ids.join(', ') +
+                            '<br><b>Matched:</b> ' + (feature.properties.matched ? 'Yes' : 'No'),
+                            { permanent: false, direction: 'auto' }
+                        );
+                    }
+                }).addTo(layerGroup_junctions);
+            }
+
         } catch (e) {
             console.error('Junction GMDA failed for', sketchmap, e);
         }
+    }
+
+    // Attach basemap junction layer to baseMap
+    layerGroup_junctions.addTo(baseMap);
+
+    // Attach sketchmap junction layer to sketchMap if it exists,
+    // and load junctions for the currently active sketchmap
+    if (typeof sketchMap !== 'undefined' && sketchMap !== null) {
+        layerGroup_junctions_sm.clearLayers();
+        if (sketchMaptitle && junctionGeoJsonPerSketchmap[sketchMaptitle]) {
+            L.geoJSON(junctionGeoJsonPerSketchmap[sketchMaptitle], {
+                pointToLayer: function(feature, latlng) {
+                    return L.circleMarker(latlng, {
+                        radius: feature.properties.matched ? 7 : 5,
+                        fillColor: feature.properties.matched ? '#00ff40' : '#059318',
+                        color: '#ffffff',
+                        weight: 1.5,
+                        fillOpacity: 1.0
+                    });
+                },
+                onEachFeature: function(feature, layer) {
+                    layer.bindTooltip(
+                        '<b>Junction:</b> ' + feature.properties.junc_id +
+                        '<br><b>Lines:</b> ' + feature.properties.line_ids.join(', ') +
+                        '<br><b>Matched:</b> ' + (feature.properties.matched ? 'Yes' : 'No'),
+                        { permanent: false, direction: 'auto' }
+                    );
+                }
+            }).addTo(layerGroup_junctions_sm);
+        }
+        layerGroup_junctions_sm.addTo(sketchMap);
     }
 
     $('#loading-spinner').hide();

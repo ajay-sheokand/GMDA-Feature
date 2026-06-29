@@ -45,6 +45,7 @@ var degree_of_generalisation;
 var layerGroup_street = new L.LayerGroup();
 var layerGroup_buildings = new L.LayerGroup();
 var layerGroup_openspaces = new L.LayerGroup();
+var layerGroup_junctions = new L.LayerGroup();
 var featuresbeforegen,featuresaftergen;
 
 
@@ -1497,7 +1498,8 @@ var layers = {
      "Generalised map" : layerGroup_generalised_map,
      "Streets" : layerGroup_street,
      "Buildings" : layerGroup_buildings,
-     "Open spaces" : layerGroup_openspaces
+     "Open spaces" : layerGroup_openspaces,
+     "Junctions": layerGroup_junctions
 };
 
 L.control.layers(null,layers).addTo(map);

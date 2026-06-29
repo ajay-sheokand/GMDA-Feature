@@ -269,12 +269,44 @@ def compute_gmda(basemap_geojson, sketchmap_geojson):
     }
 
 
-def find_juncs_from_geojson(geojson_dict, prefix, valid_ids, id_property='id'):
+def find_juncs_from_geojson(geojson_dict, prefix, valid_ids, id_property='id', tol=1.0):
     """
-    
+    Find road junctions from GeoJSON LineString features.
+
+    Detects junctions both where roads share an endpoint AND where one road's
+    endpoint lands on the interior of another road (T-junctions).
+
+    Args:
+        geojson_dict: GeoJSON dict with 'features'.
+        prefix:       String prefix for generated junction keys (e.g. 'jb').
+        valid_ids:    Collection of road IDs to consider.
+        id_property:  Property key holding each road's ID. Default 'id'.
+        tol:          Distance tolerance for treating an endpoint as lying
+                      on another road's segment. Tune to your coord scale.
+
+    Returns:
+        junctions: {junc_key: [(x, y), [road_ids]]}
+        mbr_dict:  {junc_key: [8 boundary points]}
     """
+
+    # --- helper: is point P within `tol` of segment A->B? ---
+    def point_on_segment(px, py, ax, ay, bx, by):
+        abx, aby = bx - ax, by - ay
+        apx, apy = px - ax, py - ay
+        ab_len_sq = abx * abx + aby * aby
+        if ab_len_sq == 0:
+            return False
+        t = (apx * abx + apy * aby) / ab_len_sq
+        if t < 0 or t > 1:
+            return False
+        cx, cy = ax + t * abx, ay + t * aby
+        dx, dy = px - cx, py - cy
+        return (dx * dx + dy * dy) <= tol * tol
+
     coord_map = defaultdict(list)
 
+    # --- 1. collect valid road geometries (instead of processing inline) ---
+    road_lines = {}
     for feat in geojson_dict.get('features', []):
         geom_dict = feat.get('geometry')
         if not geom_dict or geom_dict.get('type') != 'LineString':
@@ -286,21 +318,45 @@ def find_juncs_from_geojson(geojson_dict, prefix, valid_ids, id_property='id'):
         if line_id not in valid_ids:
             continue
         coords = geom_dict.get('coordinates', [])
-        if len(coords) < 2:
+        if len(coords) <= 1:
             continue
+        road_lines[line_id] = coords
+
+    # --- 2. endpoint pass (your original logic) ---
+    for line_id, coords in road_lines.items():
         for pt in [coords[0], coords[-1]]:
             key = (round(pt[0], 3), round(pt[1], 3))
             if line_id not in coord_map[key]:
                 coord_map[key].append(line_id)
-        
+
+    # --- 3. NEW: endpoint-on-other-road's-segment pass (T-junctions) ---
+    for line_id, coords in road_lines.items():
+        for pt in [coords[0], coords[-1]]:
+            px, py = pt[0], pt[1]
+            for other_id, other_coords in road_lines.items():
+                if other_id == line_id:
+                    continue
+                for j in range(len(other_coords) - 1):
+                    ax, ay = other_coords[j][0],     other_coords[j][1]
+                    bx, by = other_coords[j + 1][0], other_coords[j + 1][1]
+                    if point_on_segment(px, py, ax, ay, bx, by):
+                        key = (round(px, 3), round(py, 3))
+                        if line_id not in coord_map[key]:
+                            coord_map[key].append(line_id)
+                        if other_id not in coord_map[key]:
+                            coord_map[key].append(other_id)
+                        break  # found a matching segment on this road
+
+    # --- 4. junction detection (unchanged) ---
     junctions = {}
     jb_id = 0
     for (rx, ry), connected_roads in coord_map.items():
-        if len(connected_roads) >= 2:
+        if len(connected_roads) > 1:
             junc_key = f"{prefix}{jb_id}"
             junctions[junc_key] = [(rx, ry), connected_roads]
             jb_id += 1
 
+    # --- 5. MBR building (unchanged) ---
     mbr_dict = {}
     for junc_key in junctions:
         r = 1.0
@@ -336,7 +392,7 @@ def compute_JunctionGMDA(basemap_geojson, sketchmap_geojson):
             if sid:
                 all_skm_ids.add(sid)
 
-    # --- Valid IDs = shared between basemap and sketchmap (same as notebook) ---
+    # --- Valid IDs = shared between basemap and sketchmap ---
     valid_ids = all_bsm_ids.intersection(all_skm_ids)
 
     print(f"DEBUG: all_bsm_ids={len(all_bsm_ids)}, all_skm_ids={len(all_skm_ids)}, valid_ids={len(valid_ids)}")
@@ -357,7 +413,7 @@ def compute_JunctionGMDA(basemap_geojson, sketchmap_geojson):
     if not bsm_juncs or not skm_juncs:
         return {'ERROR': 'No junctions found', 'nTL': len(bsm_dict_mbr), 'nDL': 0}
 
-    # --- Alignment via topology subset check (exactly as notebook cell 83) ---
+    # --- Alignment via topology subset check ---
     alignment_map = {}
     for s_id, s_info in skm_juncs.items():
         s_roads = set(s_info[1])
@@ -368,7 +424,7 @@ def compute_JunctionGMDA(basemap_geojson, sketchmap_geojson):
                     alignment_map[b_id] = []
                 alignment_map[b_id].append(s_id)
 
-    # --- Union-Find grouping (same as notebook) ---
+    # --- Union-Find grouping ---
     uf = UnionFind()
     for base_id, sketch_ids in alignment_map.items():
         for s_id in sketch_ids:
@@ -381,7 +437,7 @@ def compute_JunctionGMDA(basemap_geojson, sketchmap_geojson):
         for s_id in sketch_ids:
             groups[root]['sketch_ids'].add(s_id)
 
-    # --- Classify pairs (same as notebook) ---
+    # --- Classify pairs ---
     verified_pairs = []
     excluded_base_ids = set()
 
@@ -435,6 +491,25 @@ def compute_JunctionGMDA(basemap_geojson, sketchmap_geojson):
         sum_rot_cos += np.cos(d)
         sum_ang_abs += abs(np.degrees(d))
 
+    matched_bsm_ids = {b_id for b_id, _, in verified_pairs}
+    matched_skm_ids = {s_id for _, s_id, in verified_pairs}
+
+    def junctions_to_geojson(junctions_dict, matched_ids):
+        features = []
+        for junc_key, (coords, road_ids) in junctions_dict.items():
+            x,y = coords
+            features.append({
+                "type" : "Feature",
+                "geometry": {"type": "Point", "coordinates": [x,y]},
+                "properties" : {
+                    "junc_id": junc_key,
+                    "matched": junc_key in matched_ids,
+                    "line_ids": road_ids
+                }
+            })
+        return {"type": "FeatureCollection", "features":features }
+                
+
     return {
         'CanOrg':  round(float(sum_can / (2 * n_nTL)), 4) if n_nTL > 0 else 0,
         'CanAcc':  round(float(sum_can / (2 * n_nDL)), 4) if n_nDL > 0 else 0,
@@ -444,385 +519,11 @@ def compute_JunctionGMDA(basemap_geojson, sketchmap_geojson):
         'AngAcc':  round(float(1 - sum_ang_abs / (180 * n_nDL)), 4) if n_nDL > 0 else 0,
         'nTL': nTL,
         'nDL': nDL,
+        #For Junctions to be exported as layers
+        'basemapJunctions': junctions_to_geojson(bsm_juncs, matched_bsm_ids),
+        'sketchmapJunctions': junctions_to_geojson(skm_juncs, matched_skm_ids)
     }
-"""
-def compute_JunctionGMDA(basemap_geojson, sketchmap_geojson):
 
-    import numpy as np
-    import math
-
-    # --------------------------------------------------
-    # 1. Filter LineStrings by common IDs
-    # --------------------------------------------------
-
-    bsm_features = [
-        f for f in basemap_geojson.get("features", [])
-        if f["geometry"]["type"] == "LineString"
-    ]
-
-    skm_features = [
-        f for f in sketchmap_geojson.get("features", [])
-        if f["geometry"]["type"] == "LineString"
-    ]
-
-    bsm_ids = {str(f["properties"].get("id")) for f in bsm_features}
-    skm_ids = {str(f["properties"].get("id")) for f in skm_features}
-
-    valid_ids = bsm_ids.intersection(skm_ids)
-
-    filtered_bsm = [
-        f for f in bsm_features
-        if str(f["properties"].get("id")) in valid_ids
-    ]
-
-    filtered_skm = [
-        f for f in skm_features
-        if str(f["properties"].get("id")) in valid_ids
-    ]
-
-    # --------------------------------------------------
-    # 2. Junction Detection + MBR Creation
-    # --------------------------------------------------
-
-    def find_junctions_and_mbr(features, prefix):
-
-        junctions = {}
-        lines_list = []
-
-        for f in features:
-
-            coords = f["geometry"]["coordinates"]
-
-            if len(coords) < 2:
-                continue
-
-            lines_list.append({
-                "id": str(f["properties"].get("id")),
-                "endpoints": [
-                    tuple(coords[0]),
-                    tuple(coords[-1])
-                ]
-            })
-
-        def points_match(p1, p2, tol=1e-3):
-            return (
-                math.isclose(p1[0], p2[0], abs_tol=tol)
-                and
-                math.isclose(p1[1], p2[1], abs_tol=tol)
-            )
-
-        junc_counter = 0
-
-        for i in range(len(lines_list)):
-
-            for j in range(i + 1, len(lines_list)):
-
-                line_a = lines_list[i]
-                line_b = lines_list[j]
-
-                for end_a in line_a["endpoints"]:
-
-                    for end_b in line_b["endpoints"]:
-
-                        if not points_match(end_a, end_b):
-                            continue
-
-                        new_junction = True
-
-                        for junc_id in junctions.keys():
-
-                            if points_match(
-                                end_a,
-                                junctions[junc_id][0]
-                            ):
-
-                                if (
-                                    line_a["id"] in junctions[junc_id][1]
-                                    and line_b["id"] not in junctions[junc_id][1]
-                                ):
-                                    junctions[junc_id][1].append(
-                                        line_b["id"]
-                                    )
-
-                                elif (
-                                    line_b["id"] in junctions[junc_id][1]
-                                    and line_a["id"] not in junctions[junc_id][1]
-                                ):
-                                    junctions[junc_id][1].append(
-                                        line_a["id"]
-                                    )
-
-                                new_junction = False
-                                break
-
-                        if new_junction:
-
-                            junctions[
-                                f"{prefix}{junc_counter}"
-                            ] = [
-                                end_a,
-                                [line_a["id"], line_b["id"]]
-                            ]
-
-                            junc_counter += 1
-
-        # -------------------------------
-        # Build MBRs
-        # -------------------------------
-
-        mbr_dict = {}
-
-        for junc_id in junctions.keys():
-
-            x, y = junctions[junc_id][0]
-
-            r = 1.0
-
-            xmin = x - r
-            xmax = x + r
-            ymin = y - r
-            ymax = y + r
-
-            up_left = [xmin, ymax]
-            up_center = [(xmin + xmax) / 2, ymax]
-            up_right = [xmax, ymax]
-
-            right_center = [xmax, (ymin + ymax) / 2]
-
-            down_right = [xmax, ymin]
-            down_center = [(xmin + xmax) / 2, ymin]
-            down_left = [xmin, ymin]
-
-            left_center = [xmin, (ymin + ymax) / 2]
-
-            mbr_dict[junc_id] = np.array([
-                up_left,
-                up_center,
-                up_right,
-                right_center,
-                down_right,
-                down_center,
-                down_left,
-                left_center,
-                up_left
-            ])
-
-        junc_list = []
-
-        for junc_id in junctions.keys():
-
-            junc_list.append({
-                "junc_id": junc_id,
-                "line_ids": set(junctions[junc_id][1])
-            })
-
-        return junc_list, mbr_dict
-
-    # --------------------------------------------------
-    # Detect Junctions
-    # --------------------------------------------------
-
-    bsm_juncs, bsm_dict_mbr = find_junctions_and_mbr(
-        filtered_bsm,
-        "JB"
-    )
-
-    skm_juncs, skm_dict_mbr = find_junctions_and_mbr(
-        filtered_skm,
-        "JS"
-    )
-
-    nTL = len(bsm_dict_mbr)
-
-    if not bsm_juncs or not skm_juncs:
-        return {
-            "ERROR": "No junctions found",
-            "nTL": nTL,
-            "nDL": 0
-        }
-
-
-    print("Filtered BSM:", len(filtered_bsm))
-    print("Filtered SKM:", len(filtered_skm))
-    print("BSM Junctions:", len(bsm_juncs))
-    print("SKM Junctions:", len(skm_juncs))
-    print("Verified Pairs:", len(verified_pairs))
-    # --------------------------------------------------
-    # 3. Junction Matching
-    # --------------------------------------------------
-
-    potential_matches = []
-
-    for s_junc in skm_juncs:
-
-        for b_junc in bsm_juncs:
-
-            shared = (
-                s_junc["line_ids"]
-                .intersection(b_junc["line_ids"])
-            )
-
-            if len(shared) >= 2:
-
-                potential_matches.append(
-                    (
-                        len(shared),
-                        b_junc["junc_id"],
-                        s_junc["junc_id"]
-                    )
-                )
-
-    potential_matches.sort(
-        key=lambda x: x[0],
-        reverse=True
-    )
-
-    verified_pairs = []
-
-    matched_bsm = set()
-    matched_skm = set()
-
-    for strength, b_id, s_id in potential_matches:
-
-        if (
-            b_id not in matched_bsm
-            and
-            s_id not in matched_skm
-        ):
-
-            verified_pairs.append((b_id, s_id))
-
-            matched_bsm.add(b_id)
-            matched_skm.add(s_id)
-
-    nDL = len(verified_pairs)
-
-    if nDL < 2:
-        return {
-            "ERROR": "Insufficient matches",
-            "nTL": nTL,
-            "nDL": nDL
-        }
-
-    # --------------------------------------------------
-    # 4. GMDA Metrics
-    # --------------------------------------------------
-
-    pairs_gen = list(
-        landmark_pairs_generator(
-            verified_pairs,
-            bsm_dict_mbr,
-            skm_dict_mbr
-        )
-    )
-
-    def comb2(n):
-        return n * (n - 1) // 2
-
-    n_nTL = (
-        comb2(8 * nTL) - nTL * comb2(8)
-        if nTL > 1 else 0
-    )
-
-    n_nDL = len(pairs_gen)
-
-    if n_nDL == 0:
-        return {
-            "ERROR": "No landmark pairs generated",
-            "nTL": nTL,
-            "nDL": nDL
-        }
-
-    sum_can = 0
-    sum_dist_abs = 0
-    sum_sca_bias = 0
-
-    sum_rot_sin = 0
-    sum_rot_cos = 0
-    sum_ang_abs = 0
-
-    max_db = 0.001
-    max_ds = 0.001
-
-    for b1x, b1y, b2x, b2y, s1x, s1y, s2x, s2y in pairs_gen:
-
-        max_db = max(
-            max_db,
-            np.hypot(b1x - b2x, b1y - b2y)
-        )
-
-        max_ds = max(
-            max_ds,
-            np.hypot(s1x - s2x, s1y - s2y)
-        )
-
-    for b1x, b1y, b2x, b2y, s1x, s1y, s2x, s2y in pairs_gen:
-
-        if (b1y < b2y and s1y < s2y) or \
-           (b1y > b2y and s1y > s2y):
-            sum_can += 1
-
-        if (b1x < b2x and s1x < s2x) or \
-           (b1x > b2x and s1x > s2x):
-            sum_can += 1
-
-        db = np.hypot(
-            b1x - b2x,
-            b1y - b2y
-        ) / max_db
-
-        ds = np.hypot(
-            s1x - s2x,
-            s1y - s2y
-        ) / max_ds
-
-        sum_sca_bias += (ds - db)
-        sum_dist_abs += abs(ds - db)
-
-        ang_b = np.arctan2(
-            b2x - b1x,
-            b2y - b1y
-        )
-
-        ang_s = np.arctan2(
-            s2x - s1x,
-            s2y - s1y
-        )
-
-        d = (
-            (ang_s - ang_b + np.pi)
-            % (2 * np.pi)
-        ) - np.pi
-
-        sum_rot_sin += np.sin(d)
-        sum_rot_cos += np.cos(d)
-
-        sum_ang_abs += abs(
-            np.degrees(d)
-        )
-
-    return {
-        "CanOrg": round(sum_can / (2 * n_nTL), 4) if n_nTL else 0,
-        "CanAcc": round(sum_can / (2 * n_nDL), 4),
-        "ScaBias": round(sum_sca_bias / n_nDL, 4),
-        "DistAcc": round(1 - (sum_dist_abs / n_nDL), 4),
-        "RotBias": round(
-            np.degrees(
-                np.arctan2(
-                    sum_rot_sin,
-                    sum_rot_cos
-                )
-            ),
-            4
-        ),
-        "AngAcc": round(
-            1 - (sum_ang_abs / (180 * n_nDL)),
-            4
-        ),
-        "nTL": nTL,
-        "nDL": nDL
-    }
-"""
 
 @csrf_exempt
 def calculateGMDA(request):

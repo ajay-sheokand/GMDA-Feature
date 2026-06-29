@@ -15,6 +15,8 @@ var layerGroupBasemap = new L.LayerGroup();
 var layerGroupBasemapGen = new L.LayerGroup();
 var linearOrderingActive = false;
 var linearOrdering = new L.LayerGroup();
+var layerGroup_junctions = new L.LayerGroup();
+var layerGroup_junctions_sm = new L.LayerGroup();
 var baseMap;
 var baseMaptitle;
 var drawnItems;
@@ -118,6 +120,7 @@ function renderImageFile(file, location) {
         layerGroupBasemap.addTo(baseMap);
         layerGroupBasemapGen.addTo(baseMap);
         drawnItems.addTo(layerGroupBasemap);
+        //layerGroup_junctions.addTo(baseMap);
 
 
 
@@ -125,7 +128,8 @@ function renderImageFile(file, location) {
         var layerControl = new L.Control.Layers(null, {
             'Base Map': layerGroupBasemap,
             'Generalized Map': layerGroupBasemapGen,
-            'Linear Ordering' : linearOrdering
+            'Linear Ordering' : linearOrdering,
+            'Junctions': layerGroup_junctions
         }).addTo(baseMap);
         labelButton.addTo(baseMap);
         missingFeatureButton.addTo(baseMap);
@@ -912,12 +916,39 @@ drawnItems.eachLayer(function(blayer){
         var SMLoaded = new L.imageOverlay(image.src,bounds);
         SMLoaded.addTo(sketchMap);
         sketchMap.fitBounds(bounds);
+        layerGroup_junctions_sm.addTo(sketchMap);
         enableDefaultArrows(sketchMap);
         var layerControl = new L.Control.Layers(null, {
-            'Linear Ordering' : linearOrdering
+            'Linear Ordering' : linearOrdering,
+            'Junctions' : layerGroup_junctions_sm
         }).addTo(sketchMap);
+
         sketchMaptitle = $(e.target).parent().attr("data-original-title");
-            labelButtonSketchMap.addTo(sketchMap);
+        // Reload junction points for the newly selected sketchmap
+        layerGroup_junctions_sm.clearLayers();
+        if (typeof junctionGeoJsonPerSketchmap !== 'undefined' && junctionGeoJsonPerSketchmap[sketchMaptitle]) {
+            L.geoJSON(junctionGeoJsonPerSketchmap[sketchMaptitle], {
+                pointToLayer: function(feature, latlng) {
+                    return L.circleMarker(latlng, {
+                        radius: feature.properties.matched ? 7 : 5,
+                        fillColor: feature.properties.matched ? '#00ff40' : '#059318',
+                        color: '#ffffff',
+                        weight: 1.5,
+                        fillOpacity: 0.85
+                    });
+                },
+                onEachFeature: function(feature, layer) {
+                    layer.bindTooltip(
+                        '<b>Junction:</b> ' + feature.properties.junc_id +
+                        '<br><b>Lines:</b> ' + feature.properties.line_ids.join(', ') +
+                        '<br><b>Matched:</b> ' + (feature.properties.matched ? 'Yes' : 'No'),
+                        { permanent: false, direction: 'auto' }
+                    );
+                }
+            }).addTo(layerGroup_junctions_sm);
+        }
+
+        labelButtonSketchMap.addTo(sketchMap);
         if(allDrawnSketchItems.hasOwnProperty(sketchMaptitle)){
             drawnSketchItems=allProcessedSketchMaps.hasOwnProperty(sketchMaptitle)
                     ? allProcessedSketchMaps[sketchMaptitle]
