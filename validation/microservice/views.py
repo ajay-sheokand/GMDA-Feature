@@ -132,6 +132,8 @@ def merge_simple_intersections(linegdf):
         component_ids = list(component)
         linestobemerged = linegdf[linegdf["id"].isin(component_ids)].copy()
 
+        print("CONNECTED COMPONENT:", component_ids)
+
         merged_line = merge_lines_ordered(list(linestobemerged.geometry))
         representative_row = linestobemerged.iloc[0].copy()
         new_id = representative_row["id"]
@@ -145,6 +147,8 @@ def merge_simple_intersections(linegdf):
         # map old ids → new id
         for old_id in component_ids:
             id_mapping[old_id] = new_id
+
+        print("CURRENT ID MAPPING =", id_mapping)
 
         merged_audit.append({
             "new_id": new_id,
@@ -614,9 +618,8 @@ def validate(request):
     if type == "metric":
         metricmapdata = request.POST.get('metricdata')
         routearray_raw = request.POST.get('route')  # string like "[1,2,3]"
-        print("routearray_", routearray_raw)
         route_ids = json.loads(routearray_raw) if routearray_raw else []
-        print(route_ids)
+
 
         metricMap = json.loads(metricmapdata)
 
@@ -625,6 +628,7 @@ def validate(request):
 
         line_features = []
         polygon_features = []
+        point_features = []
 
         for f in features:
             gtype = f["geometry"]["type"]
@@ -632,6 +636,8 @@ def validate(request):
                 line_features.append(f)
             elif gtype in ("Polygon", "MultiPolygon"):
                 polygon_features.append(f)
+            elif gtype in ("Point", "MultiPoint"):
+                point_features.append(f)
 
         # Convert lines to GeoDataFrame
         line_gdf = gpd.GeoDataFrame.from_features(line_features)
@@ -670,7 +676,7 @@ def validate(request):
             approved_merge_json = approved_merge_json or []
             merge_groups = [m["merged_from"] for m in approved_merge_json]
             merged_lines = apply_approved_merges(snapped_lines, merge_groups, id_col="id", inplace=False)
-            print ("inside apply", route_ids)
+
             routecorrected = validateRoute(merged_lines, route_ids, id_col="id", inplace=False)
 
             edited_lines_geojson = json.loads(routecorrected.to_json())
@@ -680,7 +686,7 @@ def validate(request):
             # 3) combine back with polygons
             final_geojson = {
                 "type": "FeatureCollection",
-                "features": edited_line_features + polygon_features
+                "features": edited_line_features + polygon_features + point_features
             }
 
 
@@ -706,6 +712,7 @@ def validate(request):
 
         line_features = []
         polygon_features = []
+        point_features = []
 
         for f in features:
             gtype = f["geometry"]["type"]
@@ -713,6 +720,8 @@ def validate(request):
                 line_features.append(f)
             elif gtype in ("Polygon", "MultiPolygon"):
                 polygon_features.append(f)
+            elif gtype in ("Point", "MultiPoint"):
+                point_features.append(f)
 
         # Convert lines to GeoDataFrame
         line_gdf = gpd.GeoDataFrame.from_features(line_features)
@@ -746,7 +755,7 @@ def validate(request):
             approved_merge_json = approved_merge_json or []
             merge_groups = [m["merged_from"] for m in approved_merge_json]
             merged_lines = apply_approved_merges(snapped_lines, merge_groups, id_col="id", inplace=False)
-            print ("inside apply", route_ids)
+
             routecorrected = validateRoute(merged_lines, route_ids, id_col="id", inplace=False)
 
             edited_lines_geojson = json.loads(routecorrected.to_json())
@@ -755,16 +764,32 @@ def validate(request):
             # 3) combine back with polygons
             final_geojson = {
                 "type": "FeatureCollection",
-                "features": edited_line_features + polygon_features
+                "features": edited_line_features + polygon_features + point_features
             }
 
-
-
-
             sketch_id_mapping = convert_mapping_to_sketch_ids(id_mapping)
+
+            print("================================")
+            print("ORIGINAL ALIGNMENT")
+            print(json.dumps(alignment, indent=2))
+
+            print("SKETCH ID MAPPING")
+            print(sketch_id_mapping)
+
             remapped_alignment = remap_alignment_ids(alignment, sketch_id_mapping)
+
+            print("REMAPPED ALIGNMENT")
+            print(json.dumps(remapped_alignment, indent=2))
+            print("================================")
+
+            print("BEFORE COMBINE")
+            print(json.dumps(remapped_alignment, indent=2))
+
             corrected_alignment = combine_by_alignment(remapped_alignment)
-            print (corrected_alignment, id_mapping)
+
+            print("AFTER COMBINE")
+            print(json.dumps(corrected_alignment, indent=2))
+
 
             response_data = {
                 "modifiedStreets": final_geojson,

@@ -5,7 +5,8 @@ var alignSketchID=[];
 var sketchOtypearray={};
 var baseOtypearray={};
 var alignBaseID=[];
-var allDrawnSketchItems={};
+var allOriginalSketchMaps={};
+var allProcessedSketchMaps = {};
 var AlignmentArray = {};
 var checkAlignnum;
 var alignmentArraySingleMap={};
@@ -13,6 +14,8 @@ var id=-1;
 var bid=-1;
 var layerGroupBasemap = new L.LayerGroup();
 var layerGroupBasemapGen = new L.LayerGroup();
+var sketchOriginalLayer = new L.LayerGroup();
+var sketchProcessedLayer = new L.LayerGroup();
 var linearOrderingActive = false;
 var linearOrdering = new L.LayerGroup();
 var layerGroup_junctions = new L.LayerGroup();
@@ -27,7 +30,6 @@ var allGenBaseMap = {};
 var genbasemap;
 var BooleanMissingFeature;
 var BooleanEditSketchMode = false;
-var allProcessedSketchMaps = {};
 
 
 $(function() {
@@ -442,7 +444,8 @@ states: [{
             title:     'showlabels',      // like its title
             onClick: function(btn, map) {
                 btn.button.style.boxShadow = 'inset 0 -1px 5px 2px rgba(81, 77, 77, 1)';
-                drawnSketchItems.eachLayer(function(slayer){
+                console.log("check processlayer", getActiveSketchLayer())
+                getActiveSketchLayer().eachLayer(function(slayer){
                 var label = slayer.feature.properties.gen_id
                 || slayer.feature.properties.sid
                 || String(slayer.feature.properties.id);
@@ -456,7 +459,7 @@ states: [{
             title:     'hidelabels',
             onClick: function(btn, map) {
                  btn.button.style.boxShadow = null;// and its callback
-                 drawnSketchItems.eachLayer(function(slayer){
+                 getActiveSketchLayer().eachLayer(function(slayer){
                     slayer.unbindTooltip();
                 })
                 btn.state('label-visible');
@@ -750,7 +753,6 @@ function callApplyValidate(selectedSnapGroups, selectedMergeGroups, type, routeA
 
 
   if (type === "sketch") {
-    console.log("check here as well", routeArray)
     return $.ajax({   // ✅ RETURN
       headers: { "X-CSRFToken": $.cookie("csrftoken") },
       url: `${baseUrl}/validation/validate/`,
@@ -802,7 +804,7 @@ if (drawnItems != null) {
                     baseMap.removeControl(routeButton);
                     baseMap.removeControl(multibuildingButton);
 
-                    allDrawnSketchItems[baseMaptitle] = drawnItems;
+                    allOriginalSketchMaps[baseMaptitle] = drawnItems;
 }
 
 
@@ -810,8 +812,14 @@ function aftersuccessfulvalidationsketch(response){
 if (drawnSketchItems != null) {
                     sketchMap.removeLayer(drawnSketchItems);
                  }
-                drawnSketchItems = L.geoJSON(response.modifiedStreets);
-                drawnSketchItems.addTo(sketchMap);
+                drawnSketchItems = L.geoJSON(response.modifiedStreets, {
+                    pointToLayer: function(feature, latlng) {
+                    return L.circleMarker(latlng);
+                }
+                });
+               allOriginalSketchMaps[sketchMaptitle] = drawnSketchItems;
+               sketchOriginalLayer.clearLayers();
+               sketchOriginalLayer.addLayer(drawnSketchItems);
                 
                 styleLayers();
                 hoverfunction();
@@ -893,6 +901,7 @@ drawnItems.eachLayer(function(blayer){
    $('.thumbnail').click(function(e){
 
 
+
    if (BooleanEditSketchMode == true){
    saveSketchMap();
    }
@@ -919,7 +928,9 @@ drawnItems.eachLayer(function(blayer){
         layerGroup_junctions_sm.addTo(sketchMap);
         enableDefaultArrows(sketchMap);
         var layerControl = new L.Control.Layers(null, {
-            'Linear Ordering' : linearOrdering,
+             "Original Sketch Map": sketchOriginalLayer,
+            "Generalized_ids": sketchProcessedLayer,
+            "Linear Ordering": linearOrdering,
             'Junctions' : layerGroup_junctions_sm
         }).addTo(sketchMap);
 
@@ -948,12 +959,26 @@ drawnItems.eachLayer(function(blayer){
             }).addTo(layerGroup_junctions_sm);
         }
 
+        console.log("THUMBNAIL CLICKED:",sketchMaptitle);
         labelButtonSketchMap.addTo(sketchMap);
-        if(allDrawnSketchItems.hasOwnProperty(sketchMaptitle)){
-            drawnSketchItems=allProcessedSketchMaps.hasOwnProperty(sketchMaptitle)
-                    ? allProcessedSketchMaps[sketchMaptitle]
-                    : allDrawnSketchItems[sketchMaptitle];
-                    drawnSketchItems.addTo(sketchMap);
+            sketchOriginalLayer.clearLayers();
+            sketchProcessedLayer.clearLayers();
+            if (allProcessedSketchMaps.hasOwnProperty(sketchMaptitle)) {
+    sketchProcessedLayer.addLayer(
+        allProcessedSketchMaps[sketchMaptitle]
+    );
+}
+        if(allOriginalSketchMaps.hasOwnProperty(sketchMaptitle)){
+            drawnSketchItems = allOriginalSketchMaps[sketchMaptitle];
+            console.log(
+    "ADDING ORIGINAL LAYER:",
+    sketchMaptitle,
+    drawnSketchItems
+);
+                    sketchOriginalLayer.addLayer(drawnSketchItems);
+                   if (!sketchMap.hasLayer(sketchOriginalLayer)) {
+                        sketchOriginalLayer.addTo(sketchMap);
+                   }
             (!(sketchMaptitle in AlignmentArray))
             if (!(sketchMaptitle in AlignmentArray)){
                 checkAlignnum = 1;
@@ -1155,7 +1180,7 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
         });
 
         sketchMap.on('pm:remove', function (e) {
-            checkIfAlignedAlready([e.layer.feature.properties.sid]);
+            removeAlignment([e.layer.feature.properties.sid]);
             alignSketchID = [];
             alignBaseID = [];
             sketchOtypearray = [];
@@ -1189,10 +1214,383 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
 
     }
 
+function getActiveSketchLayer() {
+
+    if (
+        sketchMap?.hasLayer(sketchProcessedLayer) &&
+        allProcessedSketchMaps[sketchMaptitle]
+    ) {
+        return allProcessedSketchMaps[sketchMaptitle];
+    }
+
+    return drawnSketchItems;
+}
+
+function findAlignmentConflicts(baseIDs, sketchIDs){
+
+    const conflicts = [];
+
+    for(const key in alignmentArraySingleMap){
+
+        const a = alignmentArraySingleMap[key];
+
+        const baseConflict =
+            a.BaseAlign?.[0]?.some(id =>
+                baseIDs.includes(id)
+            );
+
+        const sketchConflict =
+            a.SketchAlign?.[0]?.some(id =>
+                sketchIDs.includes(id)
+            );
+
+        if(baseConflict || sketchConflict){
+
+            conflicts.push({
+                key,
+                alignment: a
+            });
+        }
+    }
+
+    return conflicts;
+}
 
 
-    $('#alignbutton').click(function(){
-        checkIfAlignedAlready(alignSketchID);
+function getSelectedFeatures(ids, isSketch){
+
+    const features = [];
+
+    const layerGroup =
+        isSketch
+        ? drawnSketchItems
+        : drawnItems;
+
+    layerGroup.eachLayer(function(layer){
+
+        const id = isSketch
+            ? layer.feature.properties.sid
+            : layer.feature.properties.id;
+
+        if(ids.includes(id)){
+
+            const gj = layer.toGeoJSON();
+
+            if(gj.geometry.type === "LineString"){
+
+                features.push({
+                    id,
+                    feature: gj
+                });
+            }
+        }
+    });
+
+    return features;
+}
+
+
+
+function isConnectedNetwork(features){
+
+    if(features.length === 0){
+        return {
+            connected: true,
+            groups: []
+        };
+    }
+
+    const visited = new Set();
+    const groups = [];
+
+    for(let start = 0; start < features.length; start++){
+
+        if(visited.has(start)){
+            continue;
+        }
+
+        const stack = [start];
+        const component = [];
+
+        visited.add(start);
+
+        while(stack.length){
+
+            const current = stack.pop();
+
+            component.push(current);
+
+            for(let i = 0; i < features.length; i++){
+
+                if(
+                    visited.has(i) ||
+                    i === current
+                ){
+                    continue;
+                }
+
+                const intersections =
+                    turf.lineIntersect(
+                        features[current],
+                        features[i]
+                    );
+
+                if(intersections.features.length > 0){
+
+                    visited.add(i);
+                    stack.push(i);
+                }
+            }
+        }
+
+        groups.push(component);
+    }
+
+    return {
+        connected: groups.length <= 1,
+        groups
+    };
+}
+
+
+function showConnectivityModal(connectivity){
+
+    const baseGroupsHtml =
+        connectivity.baseGroups
+            ?.map(g => `[${g.join(", ")}]`)
+            .join("<br>") || "-";
+
+    const sketchGroupsHtml =
+        connectivity.sketchGroups
+            ?.map(g => `[${g.join(", ")}]`)
+            .join("<br>") || "-";
+
+    document.getElementById(
+        "baseConnectivityStatus"
+    ).innerHTML = `
+        ${
+            connectivity.baseConnected
+            ? '<span class="status-connected">✓ Connected</span>'
+            : '<span class="status-disconnected">✗ Disconnected</span>'
+        }
+        <div class="connectivity-groups">
+            ${baseGroupsHtml}
+        </div>
+    `;
+
+    document.getElementById(
+        "sketchConnectivityStatus"
+    ).innerHTML = `
+        ${
+            connectivity.sketchConnected
+            ? '<span class="status-connected">✓ Connected</span>'
+            : '<span class="status-disconnected">✗ Disconnected</span>'
+        }
+        <div class="connectivity-groups">
+            ${sketchGroupsHtml}
+        </div>
+    `;
+
+    document.getElementById(
+        "connectivityModal"
+    ).style.display = "block";
+
+    makeModalMovable("connectivityModal");
+
+    return new Promise(resolve => {
+
+        document.getElementById(
+            "connectivityContinueBtn"
+        ).onclick = () => {
+
+            document.getElementById(
+                "connectivityModal"
+            ).style.display = "none";
+
+            resolve(true);
+        };
+
+        document.getElementById(
+            "connectivityCancelBtn"
+        ).onclick = () => {
+
+            document.getElementById(
+                "connectivityModal"
+            ).style.display = "none";
+
+            resolve(false);
+        };
+
+        const closeBtn =
+            document.getElementById(
+                "connectivityCloseBtn"
+            );
+
+        if(closeBtn){
+
+            closeBtn.onclick = () => {
+
+                document.getElementById(
+                    "connectivityModal"
+                ).style.display = "none";
+
+                resolve(false);
+            };
+        }
+    });
+}
+
+
+
+function checkConnectivityMismatch(
+    baseIDs,
+    sketchIDs
+){
+
+    const baseFeatures =
+        getSelectedFeatures(
+            baseIDs,
+            false
+        );
+
+    const sketchFeatures =
+        getSelectedFeatures(
+            sketchIDs,
+            true
+        );
+
+    const baseResult =
+        isConnectedNetwork(
+            baseFeatures.map(f => f.feature)
+        );
+
+    const sketchResult =
+        isConnectedNetwork(
+            sketchFeatures.map(f => f.feature)
+        );
+
+    const baseGroups =
+        baseResult.groups.map(group =>
+            group.map(idx =>
+                baseFeatures[idx].id
+            )
+        );
+
+    const sketchGroups =
+        sketchResult.groups.map(group =>
+            group.map(idx =>
+                sketchFeatures[idx].id
+            )
+        );
+
+    return {
+
+        mismatch:
+            baseResult.connected !==
+            sketchResult.connected,
+
+        baseConnected:
+            baseResult.connected,
+
+        sketchConnected:
+            sketchResult.connected,
+
+        baseGroups,
+
+        sketchGroups
+    };
+}
+
+
+
+
+
+    $('#alignbutton').click(async function(){
+
+    const conflicts =
+        findAlignmentConflicts(
+            alignBaseID,
+            alignSketchID
+        );
+
+    const connectivity =
+        checkConnectivityMismatch(
+            alignBaseID,
+            alignSketchID
+        );
+
+    if(conflicts.length){
+
+        showAlignmentConflictModal(
+            conflicts
+        );
+
+        return;
+    }
+
+    if(connectivity.mismatch){
+
+    const proceed =
+        await showConnectivityModal(
+            connectivity
+        );
+
+    if(!proceed){
+        return;
+    }
+}
+
+    performAlignment();
+    });
+
+function removeAlignmentByKey(key) {
+
+    const alignment = alignmentArraySingleMap[key];
+
+    if (!alignment) {
+        return;
+    }
+
+    const baseIDs = alignment.BaseAlign?.[0] || [];
+    const sketchIDs = alignment.SketchAlign?.[0] || [];
+
+    // Reset sketch features
+    drawnSketchItems.eachLayer(function (slayer) {
+
+        if (sketchIDs.includes(slayer.feature.properties.sid)) {
+
+            slayer.feature.properties.aligned = false;
+            slayer.feature.properties.selected = false;
+
+            delete slayer.feature.properties.group;
+            delete slayer.feature.properties.groupID;
+
+            slayer.feature.properties.isRoute = null;
+            delete slayer.feature.properties.SketchRouteSeqOrder;
+        }
+    });
+
+    // Reset base features
+    drawnItems.eachLayer(function (blayer) {
+
+        if (baseIDs.includes(blayer.feature.properties.id)) {
+
+            blayer.feature.properties.aligned = false;
+            blayer.feature.properties.selected = false;
+
+            delete blayer.feature.properties.group;
+            delete blayer.feature.properties.groupID;
+        }
+    });
+
+    delete alignmentArraySingleMap[key];
+
+    styleLayers();
+}
+
+
+
+function performAlignment(){
         drawnItems.eachLayer(function(blayer){
         if (alignBaseID.includes(blayer.feature.properties.id)){
         blayer.feature.properties.aligned = true;
@@ -1219,9 +1617,218 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
 
         align(alignBaseID,alignSketchID,checkAlignnum,sketchOtypearray,baseOtypearray);
         checkAlignnum=checkAlignnum+1;
+
+}
+
+function showAlignmentConflictModal(conflicts){
+
+    let html = "";
+
+    conflicts.forEach(c => {
+
+        html += `
+            <div class="modal_val_row">
+                Alignment #${c.key}<br>
+                Base: [${c.alignment.BaseAlign?.[0]?.join(",")}]
+                Sketch: [${c.alignment.SketchAlign?.[0]?.join(",")}]
+            </div>
+        `;
     });
 
+    document.getElementById("alignmentConflictList")
+        .innerHTML = html;
 
+    document.getElementById("alignmentModal")
+        .style.display = "block";
+
+     makeModalMovable(
+        "alignmentModal"
+    );
+
+    window.currentAlignmentConflicts =
+        conflicts;
+}
+
+document.getElementById("keepNewBtn").onclick = async function(){
+
+    const conflicts =
+        window.currentAlignmentConflicts;
+
+    // Check connectivity FIRST using the current selection
+    const connectivity =
+        checkConnectivityMismatch(
+            alignBaseID,
+            alignSketchID
+        );
+
+    if (connectivity.mismatch) {
+
+        const proceed =
+            await showConnectivityModal(
+                connectivity
+            );
+
+        if (!proceed) {
+            return; // keep old alignment intact
+        }
+    }
+
+    // User accepted → now remove old alignment(s)
+    conflicts.forEach(c => {
+        removeAlignmentByKey(c.key);
+    });
+
+    document.getElementById(
+        "alignmentModal"
+    ).style.display = "none";
+
+    performAlignment();
+};
+
+
+
+document.getElementById(
+    "keepOldBtn"
+).onclick = function(){
+
+    document.getElementById(
+        "alignmentModal"
+    ).style.display = "none";
+
+   drawnItems.eachLayer(function(blayer){
+    blayer.feature.properties.selected = false;
+});
+
+drawnSketchItems.eachLayer(function(slayer){
+    slayer.feature.properties.selected = false;
+});
+
+alignBaseID = [];
+alignSketchID = [];
+sketchOtypearray = {};
+baseOtypearray = {};
+
+styleLayers();
+};
+
+document.getElementById(
+    "mergeAlignmentBtn"
+).onclick = async function(){
+
+    const conflicts =
+        window.currentAlignmentConflicts;
+
+    let mergedBase =
+        [...alignBaseID];
+
+    let mergedSketch =
+        [...alignSketchID];
+
+    conflicts.forEach(c => {
+
+        mergedBase.push(
+            ...(c.alignment.BaseAlign?.[0] || [])
+        );
+
+        mergedSketch.push(
+            ...(c.alignment.SketchAlign?.[0] || [])
+        );
+    });
+
+    mergedBase =
+        [...new Set(mergedBase)];
+
+    mergedSketch =
+        [...new Set(mergedSketch)];
+
+const connectivity =
+    checkConnectivityMismatch(
+        mergedBase,
+        mergedSketch
+    );
+
+if (connectivity.mismatch) {
+
+    const proceed =
+        await showConnectivityModal(
+            connectivity
+        );
+
+    if (!proceed) {
+        return; // keep existing alignments intact
+    }
+}
+
+
+
+
+    conflicts.forEach(c => {
+
+        removeAlignmentByKey(c.key);
+
+    });
+drawnItems.eachLayer(function(blayer){
+    if (mergedBase.includes(blayer.feature.properties.id)){
+        blayer.feature.properties.aligned = true;
+        blayer.feature.properties.selected = false;
+    }
+});
+
+drawnSketchItems.eachLayer(function(slayer){
+    if (mergedSketch.includes(slayer.feature.properties.sid)){
+        slayer.feature.properties.aligned = true;
+        slayer.feature.properties.selected = false;
+    }
+});
+
+    align(
+        mergedBase,
+        mergedSketch,
+        checkAlignnum,
+        buildTypeMap(
+            mergedSketch,
+            true
+        ),
+        buildTypeMap(
+            mergedBase,
+            false
+        )
+    );
+
+    checkAlignnum++;
+
+    document.getElementById(
+        "alignmentModal"
+    ).style.display = "none";
+
+    styleLayers();
+};
+
+
+function buildTypeMap(ids, isSketch){
+
+    const result = {};
+
+    const source =
+        isSketch
+        ? drawnSketchItems
+        : drawnItems;
+
+    source.eachLayer(function(layer){
+
+        const id = isSketch
+            ? layer.feature.properties.sid
+            : layer.feature.properties.id;
+
+        if(ids.includes(id)){
+
+            result[id] =
+                layer.feature.properties.otype;
+        }
+    });
+
+    return result;
+}
 
 
     function align(BID,SID,num,sketchtype,basetype){
@@ -1260,32 +1867,62 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
        baseOtypearray = {};
        hoverfunction();
     }
-    var hoverarray = [];
 
 
-    function hoverfunction(){
 
-    drawnSketchItems.eachLayer(function(slayer){
-    slayer.on('mouseover', function() {
-      if (slayer.feature.properties.aligned == true){
-      for (i in alignmentArraySingleMap){
-           if (alignmentArraySingleMap[i].SketchAlign[0].includes(slayer.feature.properties.sid)){
-               hoverarray.push(alignmentArraySingleMap[i].BaseAlign[0]);
-               hoverarray.push(alignmentArraySingleMap[i].SketchAlign[0]);
-               break;
-           }
-      }
-    }
+function hoverfunction() {
 
-    changestyleOnHover(hoverarray);
+    drawnSketchItems.eachLayer(function (slayer) {
+
+        // Remove previously attached handlers
+        if (slayer._alignmentHoverHandler) {
+            slayer.off('mouseover', slayer._alignmentHoverHandler);
+        }
+
+        if (slayer._alignmentMouseOutHandler) {
+            slayer.off('mouseout', slayer._alignmentMouseOutHandler);
+        }
+
+        slayer._alignmentHoverHandler = function () {
+
+            console.count("SM hover");
+
+            if (slayer.feature.properties.aligned === true) {
+
+                let hoverarray = [];
+
+                for (let i in alignmentArraySingleMap) {
+
+                    if (
+                        alignmentArraySingleMap[i].SketchAlign[0]
+                            .includes(slayer.feature.properties.sid)
+                    ) {
+
+                        hoverarray.push(
+                            alignmentArraySingleMap[i].BaseAlign[0]
+                        );
+
+                        hoverarray.push(
+                            alignmentArraySingleMap[i].SketchAlign[0]
+                        );
+
+                        break;
+                    }
+                }
+
+                changestyleOnHover(hoverarray);
+            }
+        };
+
+        slayer._alignmentMouseOutHandler = function () {
+            hoverarray = [];
+            styleLayers();
+        };
+
+        slayer.on('mouseover', slayer._alignmentHoverHandler);
+        slayer.on('mouseout', slayer._alignmentMouseOutHandler);
     });
-
-    slayer.on('mouseout', function() {
-    hoverarray=[];
-    styleLayers();
-    });
-       });
-    }
+}
 
 
   function predictGeneralization(sketchtype,basetype){
@@ -1400,7 +2037,7 @@ sketchMap.pm.Toolbar.changeActionsOfControl('CircleMarker', sketchActions);
      addedClickSketch = false;
 
 
-     allDrawnSketchItems[sketchMaptitle]=drawnSketchItems;
+     allOriginalSketchMaps[sketchMaptitle]=drawnSketchItems;
       drawnSketchItems.setStyle({opacity:1});
       AlignmentArray[sketchMaptitle]=alignmentArraySingleMap;
       AlignmentArray[sketchMaptitle].checkAlignnum = checkAlignnum;
@@ -1438,7 +2075,6 @@ var sketchIDArray = Object.keys(sketchRouteGroups)
     .map(order => sketchRouteGroups[order]);
 
 
-  console.log("sketch route", sketchIDArray);
   baseUrl = getServiceUrl('validation');
 
   // ✅ Wait for preview ajax
@@ -1496,7 +2132,7 @@ drawnItems.eachLayer(function(blayer){
 hoverfunction();
 }
 
-function checkIfAlignedAlready(alignSketchID){
+function removeAlignment(alignSketchID){
 
 for (i in alignmentArraySingleMap){
 

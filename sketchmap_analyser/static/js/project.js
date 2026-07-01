@@ -22,7 +22,7 @@ var orderedCompResult = [];
 var rows = [];
 var cells = [];
 var numbOfSM;
-var tempallDrawnSketchItems;
+var tempallOriginalSketchMaps;
 var streetCountBeforeGen = 0;
 var lmCountBeforeGen = 0;
 var hostName
@@ -68,7 +68,7 @@ function renderGeoJsonFiles(file) {
 
            drawnItems = L.geoJSON(data);
            drawnItems.addTo(layerGroupBasemap);
-           allDrawnSketchItems[baseMaptitle] = drawnItems;
+           allOriginalSketchMaps[baseMaptitle] = drawnItems;
             styleLayers();
 
         });
@@ -86,7 +86,7 @@ function renderGeoJsonFiles(file) {
 
 
           styleLayers();
-          allDrawnSketchItems[sketchMaptitle]=drawnSketchItems;
+          allOriginalSketchMaps[sketchMaptitle]=drawnSketchItems;
         });
     }}
 
@@ -112,11 +112,11 @@ download = true;
     var alignment = JSON.stringify(AlignmentArray);
     zip.file("alignment.json", alignment);
 
-   allDrawnSketchItems[sketchMaptitle] = drawnSketchItems;
-    for (var key in allDrawnSketchItems) {
+   allOriginalSketchMaps[sketchMaptitle] = drawnSketchItems;
+    for (var key in allOriginalSketchMaps) {
       zip.file(
         key + ".geojson",
-        JSON.stringify(allDrawnSketchItems[key].toGeoJSON())
+        JSON.stringify(allOriginalSketchMaps[key].toGeoJSON())
       );
     }
 
@@ -385,12 +385,11 @@ function removeMissingFeatures(featureCollection) {
 
 var GenHoverArray = [];
 
-function Genhoverfunction(GenBaseMap){
-    drawnSketchItems.eachLayer(function(slayer){
+function Genhoverfunction(sketchLayer, GenBaseMap){
+    sketchLayer.eachLayer(function(slayer){
     slayer.on('mouseover', function() {
        let hoveredID;
      hoveredID = slayer.feature.properties.id;
-     console.log(sketchMaptitle, intervalLookupSM,hoveredID);
        if (sketchMap.hasLayer(linearOrdering)) {
                 const projectionSM = intervalLookupSM[sketchMaptitle]?.[hoveredID];
                 if (projectionSM) {
@@ -401,12 +400,12 @@ function Genhoverfunction(GenBaseMap){
             }
         if(slayer.feature.properties.group != true){
         GenHoverArray.push(slayer.feature.properties.id);
-        GenchangestyleOnHover(GenHoverArray,slayer.feature.properties.group,GenBaseMap);
+        GenchangestyleOnHover(GenHoverArray,slayer.feature.properties.group,GenBaseMap,sketchLayer);
         }
         else
         {
         GenHoverArray.push(slayer.feature.properties.groupID);
-        GenchangestyleOnHover(GenHoverArray,slayer.feature.properties.group,GenBaseMap);
+        GenchangestyleOnHover(GenHoverArray,slayer.feature.properties.group,GenBaseMap,sketchLayer);
         }
     });
     slayer.on('mouseout', function() {
@@ -438,17 +437,14 @@ function Genhoverfunction(GenBaseMap){
 
     });
 
-
-
-
-
-
-
-
-
     }
 
-function GenchangestyleOnHover(Array,BooleanGroup,GenBaseMap){
+function GenchangestyleOnHover(Array,BooleanGroup,GenBaseMap,sketchLayer){
+    console.log('check for proc layer',sketchLayer);
+    if (!sketchLayer){
+        sketchLayer = allOriginalSketchMaps[currentsketchMap];
+    }
+
     Array=Array.flat();
     if (BooleanGroup != true){
      GenBaseMap.eachLayer(function(glayer){
@@ -461,9 +457,10 @@ function GenchangestyleOnHover(Array,BooleanGroup,GenBaseMap){
     }
 
      });
-     drawnSketchItems.eachLayer(function(slayer){
+     sketchLayer.eachLayer(function(slayer){
      for (i in Array){
-        if (slayer.feature.properties.sid==Array[i]){
+        if (  slayer.feature.properties.sid == Array[i] ||
+    slayer.feature.properties.id == Array[i]){
             slayer.setStyle({
             color: 'blue'   //or whatever style you wish to use;
         });
@@ -483,7 +480,7 @@ function GenchangestyleOnHover(Array,BooleanGroup,GenBaseMap){
     }
 
      });
-     drawnSketchItems.eachLayer(function(slayer){
+     sketchLayer.eachLayer(function(slayer){
      for (i in Array){
         if (slayer.feature.properties.groupID==Array[i]){
             slayer.setStyle({
@@ -516,7 +513,7 @@ if (BooleanEditSketchMode){
 
     //Clear the Result table and add number of rows and columns in the table as per the number of uploaded sketch maps
     $("#OrderingofMaps tbody tr").remove();
-    drawnItems = allDrawnSketchItems[baseMaptitle] ;
+    drawnItems = allOriginalSketchMaps[baseMaptitle] ;
     numbOfSM = document.getElementById("SMholder").childElementCount;
     var resultTable = document.getElementById("resultRows");
     for (var i = 0; i<numbOfSM-3;i++){
@@ -527,25 +524,25 @@ if (BooleanEditSketchMode){
         }
    }
 
-    //Empty the variable tempallDrawnSketchItems
-    tempallDrawnSketchItems = JSON.parse(JSON.stringify({}));
+    //Empty the variable tempallOriginalSketchMaps
+    tempallOriginalSketchMaps = JSON.parse(JSON.stringify({}));
 
 
    //Load all the sketchmaps into temporary variable
-    for ( var i in Object.keys(allDrawnSketchItems)){
-        if (Object.keys(allDrawnSketchItems)[i] != baseMaptitle){
-            tempallDrawnSketchItems[Object.keys(allDrawnSketchItems)[i]] = allDrawnSketchItems[Object.keys(allDrawnSketchItems)[i]]
+    for ( var i in Object.keys(allOriginalSketchMaps)){
+        if (Object.keys(allOriginalSketchMaps)[i] != baseMaptitle){
+            tempallOriginalSketchMaps[Object.keys(allOriginalSketchMaps)[i]] = allOriginalSketchMaps[Object.keys(allOriginalSketchMaps)[i]]
         }
     }
 
 
-    for (var i in Object.keys(tempallDrawnSketchItems)){
+    for (var i in Object.keys(tempallOriginalSketchMaps)){
         var index = i;
         missingFeaturesIds[index]=[];
         extraFeaturesIds[index]=[];
         streetCountBeforeGen = 0;
         lmCountBeforeGen = 0;
-        currentsketchMap = Object.keys(tempallDrawnSketchItems)[i];
+        currentsketchMap = Object.keys(tempallOriginalSketchMaps)[i];
 
             GenBaseMap = null;
         ProcSketchMap = null;
@@ -575,7 +572,9 @@ if (BooleanEditSketchMode){
         });
 
         restoreBaseAlignment(AlignmentArray[currentsketchMap]);
-        drawnSketchItems = allDrawnSketchItems[currentsketchMap];
+        const analysisSketchItems = allOriginalSketchMaps[currentsketchMap];
+
+        console.log("ANALYZING:",currentsketchMap,"drawnSketchItems now points to:",currentsketchMap);
 
         missingFeaturesCount = 0;
         extraFeaturesCount = 0;
@@ -603,7 +602,7 @@ if (BooleanEditSketchMode){
 
 
 
-        drawnSketchItems.eachLayer(function(slayer){
+        analysisSketchItems.eachLayer(function(slayer){
                 if (slayer.feature.properties.group){
                         delete slayer.feature.properties.group;
                         delete slayer.feature.properties.groupID;
@@ -634,7 +633,7 @@ try {
       data: {
         csrfmiddlewaretoken: $.cookie("csrftoken"),
         basedata: JSON.stringify(drawnItems.toGeoJSON()),
-        sketchdata: JSON.stringify(drawnSketchItems.toGeoJSON()),
+        sketchdata: JSON.stringify(analysisSketchItems.toGeoJSON()),
         aligndata: JSON.stringify(AlignmentArray[currentsketchMap]),
         sketchmapName: JSON.stringify(currentsketchMap)
       }
@@ -652,7 +651,7 @@ try {
     );
 
     const processeddata = await prepareDataForQualifier(fixedIndex, GenBasemapjson.generalizedbasemap);
-    console.log(processeddata, "check here")
+
 
     let responseData = {};
 
@@ -712,6 +711,42 @@ function getServiceUrl(serviceName) {
 
     // On cloud: use Apache reverse proxy paths
     return `${protocol}//${hostName}`;
+}
+
+function attachProcessedHover(procLayer){
+
+    procLayer.eachLayer(function(slayer){
+
+        slayer.on('mouseover', function(){
+
+            let hoverarray = [];
+
+            if (slayer.feature.properties.groupID){
+                hoverarray.push(
+                    slayer.feature.properties.groupID
+                );
+            }
+            else{
+                hoverarray.push(
+                    slayer.feature.properties.id
+                );
+            }
+
+            GenchangestyleOnHover(
+                hoverarray,
+                slayer.feature.properties.group === true,
+                allGenBaseMap[sketchMaptitle],
+                procLayer
+            );
+        });
+
+        slayer.on('mouseout', function(){
+            GenStyleLayers(allGenBaseMap[sketchMaptitle]);
+            styleProcessedLayer(procLayer);
+
+        });
+
+    });
 }
 
 function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,resp){
@@ -796,7 +831,6 @@ function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,re
                     if(item.properties.otype == "CircleMarker"){
                         item.properties.feat_type="Landmark";
                         }
-                    console.log(item, "check sketchfeature")
                     sketchMapProc.push(item);
                  }
                  else{
@@ -827,9 +861,17 @@ function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,re
                  }
                  });
 
-               ProcSketchMap = L.geoJSON(sketchMapProc);
+               ProcSketchMap = L.geoJSON(sketchMapProc,{
+                pointToLayer: function(feature, latlng){
+                return L.circleMarker(latlng);
+                }
+                });
+
+                styleProcessedLayer(ProcSketchMap);
+
+
                 allProcessedSketchMaps[currentsketchMap] = ProcSketchMap;
-                drawnSketchItems = ProcSketchMap;          // ← this line is required
+                attachProcessedHover(ProcSketchMap);
 
                 if (GenBaseMap != null) {
                     layerGroupBasemapGen.removeLayer(GenBaseMap);
@@ -838,11 +880,19 @@ function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,re
                 GenBaseMap = L.geoJSON(baseMapProc);
                 allGenBaseMap[currentsketchMap] = GenBaseMap;
                 GenStyleLayers(GenBaseMap);
-                Genhoverfunction(GenBaseMap);
+                Genhoverfunction(allOriginalSketchMaps[currentsketchMap],GenBaseMap);
 
                 if (currentsketchMap == sketchMaptitle) {
                     allGenBaseMap[sketchMaptitle].addTo(layerGroupBasemapGen);
                 }
+
+                if (currentsketchMap == sketchMaptitle) {
+                    sketchProcessedLayer.clearLayers();
+                    sketchProcessedLayer.addLayer(
+                    allProcessedSketchMaps[sketchMaptitle]
+                );
+
+            }
 
             genResultArray[currentsketchMap] = {};
             genResultArray[currentsketchMap].om = omissionmerge;
@@ -860,7 +910,75 @@ function generalizedMapExtract(index,currentsketchMap,alignmentArraySingleMap,re
 
  }
 
+function styleProcessedLayer(procLayer) {
 
+    if (!procLayer) return;
+
+    procLayer.eachLayer(function(slayer){
+
+        if (slayer.feature.properties.selected){
+            slayer.setStyle({
+                weight: 12
+            });
+        }
+
+        if (
+            !slayer.feature.properties.selected &&
+            !slayer.feature.properties.aligned &&
+            !slayer.feature.properties.isRoute
+        ){
+            slayer.setStyle({
+                opacity: 0.7,
+                weight: 5,
+                color: "#e8913a",
+                fillColor: "#e8913a",
+                dashArray: [5,5]
+            });
+        }
+
+        if (
+            !slayer.feature.properties.selected &&
+            slayer.feature.properties.aligned &&
+            !slayer.feature.properties.isRoute
+        ){
+            slayer.setStyle({
+                opacity: 0.7,
+                weight: 5,
+                color: "#e8913a",
+                fillColor: "#e8913a",
+                dashArray: null
+            });
+        }
+
+        if (
+            !slayer.feature.properties.selected &&
+            !slayer.feature.properties.aligned &&
+            slayer.feature.properties.isRoute == "Yes"
+        ){
+            slayer.setStyle({
+                opacity: 0.7,
+                weight: 5,
+                color: "red",
+                fillColor: "red",
+                dashArray: [5,5]
+            });
+        }
+
+        if (
+            !slayer.feature.properties.selected &&
+            slayer.feature.properties.aligned &&
+            slayer.feature.properties.isRoute == "Yes"
+        ){
+            slayer.setStyle({
+                opacity: 0.7,
+                weight: 5,
+                color: "red",
+                fillColor: "red",
+                dashArray: null
+            });
+        }
+    });
+}
 
 
 async function analyzeCompleteness(index, currentsketchMap, processedSketch, processedMetric) {
@@ -952,61 +1070,55 @@ async function analyzeQualitative(index, currentsketchMap, processedSketch, proc
 }
 
 
+function GenStyleLayers(generalizedmap) {
+    if (BooleanMissingFeature) {
+        generalizedmap.eachLayer(function (glayer) {
+            if (!glayer.feature.properties.selected && glayer.feature.properties.missing == true && !glayer.feature.properties.isRoute) {
+                glayer.setStyle({ opacity: 0, weight: 0, color: "#e8913a", dashArray: [5, 5] });
 
-function GenStyleLayers(generalizedmap){
+                // Fixed: Extract element safely first, then assign opacity
+                const tooltipEl = glayer.getTooltip()?.getElement();
+                if (tooltipEl) tooltipEl.style.opacity = '0';
+            }
+            if (!glayer.feature.properties.selected && !glayer.feature.properties.missing && !glayer.feature.properties.isRoute) {
+                glayer.setStyle({ opacity: 0.7, weight: 5, color: "#e8913a", dashArray: null });
+            }
+            if (!glayer.feature.properties.selected && glayer.feature.properties.missing == true && glayer.feature.properties.isRoute == "Yes") {
+                glayer.setStyle({ opacity: 0, weight: 0, color: "red", dashArray: [5, 5] });
 
+                // Fixed
+                const tooltipEl = glayer.getTooltip()?.getElement();
+                if (tooltipEl) tooltipEl.style.opacity = '0';
+            }
+            if (!glayer.feature.properties.selected && !glayer.feature.properties.missing && glayer.feature.properties.isRoute == "Yes") {
+                glayer.setStyle({ opacity: 0.7, weight: 5, color: "red", dashArray: null });
+            }
+        });
+    } else {
+        generalizedmap.eachLayer(function (glayer) {
+            if (!glayer.feature.properties.selected && glayer.feature.properties.missing == true && !glayer.feature.properties.isRoute) {
+                glayer.setStyle({ opacity: 0.7, weight: 5, color: "#e8913a", dashArray: [5, 5] });
 
-if (BooleanMissingFeature){
-generalizedmap.eachLayer(function(glayer){
-            if (!glayer.feature.properties.selected && glayer.feature.properties.missing == true && !glayer.feature.properties.isRoute){
-                glayer.setStyle({opacity:0,weight: 0,color: "#e8913a",dashArray: [5, 5]});
-                if(glayer.getTooltip()){
-                glayer.getTooltip().getElement().style.opacity = '0';
-                }
+                // Fixed
+                const tooltipEl = glayer.getTooltip()?.getElement();
+                if (tooltipEl) tooltipEl.style.opacity = '1';
             }
-            if (!glayer.feature.properties.selected && !glayer.feature.properties.missing && !glayer.feature.properties.isRoute){
-                glayer.setStyle({opacity:0.7,weight: 5,color: "#e8913a",dashArray: null});
+            if (!glayer.feature.properties.selected && !glayer.feature.properties.missing && !glayer.feature.properties.isRoute) {
+                glayer.setStyle({ opacity: 0.7, weight: 5, color: "#e8913a", dashArray: null });
             }
-            if (!glayer.feature.properties.selected && glayer.feature.properties.missing == true && glayer.feature.properties.isRoute=="Yes"){
-                glayer.setStyle({opacity:0,weight: 0,color: "red",dashArray: [5, 5]});
-               if(glayer.getTooltip()){
-                glayer.getTooltip().getElement().style.opacity = '0';
-                }
-            }
-            if(!glayer.feature.properties.selected && !glayer.feature.properties.missing && glayer.feature.properties.isRoute=="Yes"){
-                glayer.setStyle({opacity:0.7,weight: 5,color: "red",dashArray: null,});
-            }
-     });
+            if (!glayer.feature.properties.selected && glayer.feature.properties.missing == true && glayer.feature.properties.isRoute == "Yes") {
+                glayer.setStyle({ opacity: 0.7, weight: 5, color: "red", dashArray: [5, 5] });
 
+                // Fixed
+                const tooltipEl = glayer.getTooltip()?.getElement();
+                if (tooltipEl) tooltipEl.style.opacity = '1';
+            }
+            if (!glayer.feature.properties.selected && !glayer.feature.properties.missing && glayer.feature.properties.isRoute == "Yes") {
+                glayer.setStyle({ opacity: 0.7, weight: 5, color: "red", dashArray: null });
+            }
+        });
     }
-    else {
-
-    generalizedmap.eachLayer(function(glayer){
-            if (!glayer.feature.properties.selected && glayer.feature.properties.missing == true && !glayer.feature.properties.isRoute){
-                glayer.setStyle({opacity:0.7,weight: 5,color: "#e8913a",dashArray: [5, 5]});
-                if(glayer.getTooltip()){
-                glayer.getTooltip().getElement().style.opacity = '1';
-                }
-            }
-            if (!glayer.feature.properties.selected && !glayer.feature.properties.missing && !glayer.feature.properties.isRoute){
-                glayer.setStyle({opacity:0.7,weight: 5,color: "#e8913a",dashArray: null});
-            }
-            if (!glayer.feature.properties.selected && glayer.feature.properties.missing == true && glayer.feature.properties.isRoute=="Yes"){
-                glayer.setStyle({opacity:0.7,weight: 5,color: "red",dashArray: [5, 5]});
-                if(glayer.getTooltip()){
-                glayer.getTooltip().getElement().style.opacity = '1';
-                }
-            }
-            if(!glayer.feature.properties.selected && !glayer.feature.properties.missing && glayer.feature.properties.isRoute=="Yes"){
-                glayer.setStyle({opacity:0.7,weight: 5,color: "red",dashArray: null,});
-            }
-     });
-
-
-
-
-    }
-    }
+}
 
 
 
@@ -1127,7 +1239,6 @@ if (Object.keys(qualresponseArray)!=0){
 
 for (var i in Object.keys(qualresponseArray)){
         var sketchmap = Object.keys(qualresponseArray)[i];
-        console.log(sketchmap);
         QASummaryCSV.push(sketchmap);
         QASummaryCSV.push("Correctness");
         QASummaryCSV.push("Qualitative Spatial Aspects , Relations in Base map , Relations in Sketch Map , Correct Relations, Wrong Relations, Missing Relations, Accuracy Rate (%)");
@@ -1146,7 +1257,7 @@ for (var i in Object.keys(qualresponseArray)){
 
 
 
-for (var i in Object.keys(tempallDrawnSketchItems)){
+for (var i in Object.keys(tempallOriginalSketchMaps)){
 
     // ... (missing/extra lines unchanged)
 }
@@ -1154,9 +1265,9 @@ for (var i in Object.keys(tempallDrawnSketchItems)){
 
 GeneralizationCSV.push("Sketch Map , BaseId , SketchId , GenId , Generalization Type");
 
- for (var i in Object.keys(tempallDrawnSketchItems)){
+ for (var i in Object.keys(tempallOriginalSketchMaps)){
 
-  var sketchmap = Object.keys(tempallDrawnSketchItems)[i];
+  var sketchmap = Object.keys(tempallOriginalSketchMaps)[i];
     const lookups = buildGenIdLookups(TemporaryAlignmentArray[sketchmap]);
 
     if (TemporaryAlignmentArray[sketchmap]){
@@ -1197,7 +1308,6 @@ for (var i in Object.keys(genResultArray)) {
 
 
     var sketchmap = Object.keys(genResultArray)[i];
-    console.log("CHECK", sketchmap);
     var comp = responseArray[sketchmap];
     var qa = qualresponseArray[sketchmap];
 
@@ -1255,9 +1365,27 @@ if (Object.keys(qualresponseArray)!=0){
 
                 zip.file("QADetailedOutput.csv", QASummaryCSV.join("\n"));
 }
-        for (var i in Object.keys(allGenBaseMap)){
-        zip.folder("GeneralizedBaseMap").file(Object.keys(allGenBaseMap)[i]+".geojson", JSON.stringify(allGenBaseMap[Object.keys(allGenBaseMap)[i]].toGeoJSON()));
-        }
+        const genFolder = zip.folder("GeneralizedMaps");
+
+// Generalized basemaps
+for (var i in Object.keys(allGenBaseMap)) {
+    const mapName = Object.keys(allGenBaseMap)[i];
+
+    genFolder.file(
+        mapName + "_basemap.geojson",
+        JSON.stringify(allGenBaseMap[mapName].toGeoJSON())
+    );
+}
+
+// Processed sketch maps
+for (var i in Object.keys(allProcessedSketchMaps)) {
+    const mapName = Object.keys(allProcessedSketchMaps)[i];
+
+    genFolder.file(
+        mapName + "_sketch.geojson",
+        JSON.stringify(allProcessedSketchMaps[mapName].toGeoJSON())
+    );
+}
         zip.generateAsync({type:"blob"})
         .then(function(content) {
         saveAs(content, "Results.zip");
@@ -1294,9 +1422,7 @@ function buildGenIdLookups(alignmentForMap) {
     return { baseIdToGenId, sketchIdToGenId, groupIdToGenId };
 }
 
-// Translate any raw id used in CSVs into gen_id.
-// Handles: "G<key>" group ids, sketch sids ("S12"), numeric base ids, and
-// falls back to "g.<n>" for unmapped numeric base ids (missing features).
+
 function resolveGenId(rawId, lookups) {
     if (rawId == null || rawId === '') return rawId;
     const s = String(rawId).trim();
